@@ -1,0 +1,99 @@
+{
+  "database": "HobbyData",
+  "title": "HobbyData Collection Vault & Market Cache",
+  "entities": {
+    "CollectibleItem": {
+      "title": "CollectibleItem",
+      "description": "A single collectible card, Beyblade, or asset stored in a user's vault",
+      "properties": {
+        "id": { "type": "string", "description": "Unique item ID" },
+        "sandboxId": { "type": "string", "description": "ID of the sandbox vault this item belongs to" },
+        "name": { "type": "string", "description": "Asset name or card title" },
+        "category": { "type": "string", "enum": ["pokemon", "beyblade", "onepiece", "mtg", "yugioh", "other"], "description": "Hobby category" },
+        "currentPriceUSD": { "type": "number", "description": "Current market price in USD" },
+        "purchasePriceUSD": { "type": "number", "description": "Original purchase price in USD" },
+        "purchaseDate": { "type": "string", "description": "ISO date of purchase" },
+        "quantity": { "type": "number", "description": "Quantity owned" },
+        "condition": { "type": "string", "description": "Condition or grade" },
+        "imageUrl": { "type": "string", "description": "Display image URL" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Search and filter tags" },
+        "priceHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string" },
+              "priceUSD": { "type": "number" }
+            }
+          }
+        },
+        "lastSyncedAt": { "type": "string", "description": "Timestamp when price was last updated from external TCG source" },
+        "cardSpecs": { "type": "object" },
+        "beybladeSpecs": { "type": "object" },
+        "userId": { "type": "string", "description": "Owner user ID or anonymous vault session" }
+      },
+      "required": ["id", "sandboxId", "name", "category", "currentPriceUSD", "purchasePriceUSD", "quantity"]
+    },
+    "HobbySandbox": {
+      "title": "HobbySandbox",
+      "description": "A custom hobby sandbox / collection vault",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "description": { "type": "string" },
+        "isCustom": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "color"]
+    },
+    "PriceCache": {
+      "title": "PriceCache",
+      "description": "Cached market prices retrieved from external TCG and marketplace APIs (TCGPlayer, PriceCharting, Scryfall, Takara secondary indexes)",
+      "properties": {
+        "cacheKey": { "type": "string", "description": "Normalized search/barcode key" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "priceUSD": { "type": "number" },
+        "source": { "type": "string", "description": "API source e.g. TCGPlayer, Scryfall, TakaraTomy, PriceCharting" },
+        "highUSD": { "type": "number" },
+        "lowUSD": { "type": "number" },
+        "change24h": { "type": "number" },
+        "volume24h": { "type": "number" },
+        "updatedAt": { "type": "string" },
+        "ttl": { "type": "number", "description": "Timestamp after which cache expires" }
+      },
+      "required": ["cacheKey", "name", "priceUSD", "source", "updatedAt"]
+    },
+    "ApiPipelineLog": {
+      "title": "ApiPipelineLog",
+      "description": "Logs of external API fetches and background data pipeline executions",
+      "properties": {
+        "id": { "type": "string" },
+        "source": { "type": "string" },
+        "query": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "status": { "type": "string" },
+        "cached": { "type": "boolean" },
+        "dataPointsCount": { "type": "number" }
+      },
+      "required": ["id", "source", "timestamp", "status"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered user account profile and preferences",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "Display name or collector handle" },
+        "photoURL": { "type": "string", "description": "Avatar photo URL" },
+        "providerId": { "type": "string", "description": "Auth provider (google.com or password)" },
+        "createdAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" }
+      },
+      "required": ["uid"]
+    }
+  }
+}

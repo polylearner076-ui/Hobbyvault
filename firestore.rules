@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Collectible items collection
+    match /items/{itemId} {
+      allow read, write: if true;
+    }
+
+    // Sandboxes collection
+    match /sandboxes/{sandboxId} {
+      allow read, write: if true;
+    }
+
+    // User profiles collection
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Price cache collection
+    match /price_cache/{cacheKey} {
+      allow read, write: if true;
+    }
+
+    // Data pipeline execution logs
+    match /pipeline_logs/{logId} {
+      allow read, write: if true;
+    }
+  }
+}
