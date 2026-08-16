@@ -99,58 +99,58 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
   return (
     <header
       id="apple-navbar"
-      className="sticky top-0 z-40 w-full backdrop-blur-xl bg-white/85 border-b border-black/[0.06] text-[#1C1C1E] transition-all"
+      className="sticky top-0 z-40 w-full backdrop-blur-xl bg-white/90 border-b border-black/[0.06] text-[#1C1C1E] transition-all"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Left: App Logo & Conditional Sandbox Selector */}
-        <div className="flex items-center gap-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
+        {/* Left: App Logo & Microservice View Switcher */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             onClick={() => setActiveView('portfolio')}
-            className="flex items-center gap-2.5 text-left cursor-pointer focus:outline-none"
+            className="flex items-center gap-2 text-left cursor-pointer focus:outline-none shrink-0"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#007AFF] via-indigo-500 to-sky-400 p-[1px] shadow-sm flex items-center justify-center">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-[#007AFF] via-indigo-500 to-sky-400 p-[1px] shadow-sm flex items-center justify-center shrink-0">
               <div className="w-full h-full bg-white rounded-[11px] flex items-center justify-center">
-                <Layers className="w-5 h-5 text-[#007AFF]" />
+                <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-[#007AFF]" />
               </div>
             </div>
-            <div>
+            <div className="hidden xs:block">
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold tracking-tight text-base text-[#1C1C1E]">
+                <span className="font-semibold tracking-tight text-sm sm:text-base text-[#1C1C1E] whitespace-nowrap">
                   Collector<span className="text-[#007AFF] font-bold">Vault</span>
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20">
+                <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20">
                   Pro
                 </span>
               </div>
             </div>
           </button>
 
-          {/* Quick Microservice View Switcher */}
+          {/* Microservice View Switcher: Single unified toggle */}
           {isLoggedIn ? (
-            <div className="hidden sm:flex items-center bg-black/[0.04] p-1 rounded-xl border border-black/[0.06] text-xs font-semibold">
+            <div className="flex items-center bg-black/[0.04] p-0.5 sm:p-1 rounded-xl border border-black/[0.06] text-xs font-semibold shrink-0">
               <button
                 id="nav-view-portfolio-btn"
                 onClick={() => setActiveView('portfolio')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all ${
+                className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                   activeView === 'portfolio'
                     ? 'bg-white text-[#1C1C1E] shadow-2xs'
                     : 'text-[#8E8E93] hover:text-[#1C1C1E]'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-[#007AFF]" />
-                <span>Portfolios</span>
+                <Layers className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
+                <span className="text-xs">Portfolios</span>
               </button>
               <button
                 id="nav-view-storage-btn"
                 onClick={() => setActiveView('storage')}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all ${
+                className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                   activeView === 'storage'
                     ? 'bg-[#007AFF] text-white shadow-2xs'
                     : 'text-[#8E8E93] hover:text-[#1C1C1E]'
                 }`}
               >
-                <Box className="w-3.5 h-3.5" />
-                <span>Storage Hub</span>
+                <Box className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-xs">Storage</span>
               </button>
             </div>
           ) : (
@@ -164,13 +164,13 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Currency Switcher (Always available) */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               id="currency-switcher-btn"
               onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors shadow-sm"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors shadow-sm cursor-pointer whitespace-nowrap"
             >
               <span>{currency}</span>
               <ChevronDown className="w-3 h-3 text-[#8E8E93]" />
@@ -201,24 +201,24 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
           {isLoggedIn ? (
             <>
               {/* Live Real-Time Sync & Auto-Refresh Control */}
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   id="sync-market-prices-btn"
                   onClick={() => setShowSyncDropdown(!showSyncDropdown)}
                   title={`Auto-refresh: ${isAutoSyncEnabled ? `Every ${autoSyncIntervalSeconds}s (Next in ${nextSyncCountdown}s)` : 'Manual'} • Last: ${lastSyncTime || 'now'}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] text-[#1C1C1E] border border-black/[0.08] text-xs font-medium transition-all shadow-sm active:scale-95"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] text-[#1C1C1E] border border-black/[0.08] text-xs font-medium transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
                 >
-                  <span className="relative flex h-2 w-2">
+                  <span className="relative flex h-2 w-2 shrink-0">
                     {isAutoSyncEnabled && (
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     )}
                     <span className={`relative inline-flex rounded-full h-2 w-2 ${isAutoSyncEnabled ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                   </span>
-                  <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline font-semibold">
                     {isSyncing ? 'Syncing...' : isAutoSyncEnabled ? `Live ${nextSyncCountdown}s` : 'Live Prices'}
                   </span>
-                  <ChevronDown className="w-3 h-3 text-[#8E8E93]" />
+                  <ChevronDown className="w-3 h-3 text-[#8E8E93] shrink-0" />
                 </button>
 
                 {showSyncDropdown && (
@@ -316,34 +316,19 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
               <button
                 id="open-scan-modal-btn"
                 onClick={onOpenScanModal}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 text-xs font-semibold transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <ScanLine className="w-3.5 h-3.5 text-indigo-500" />
+                <ScanLine className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                 <span className="hidden md:inline">AI Scanner</span>
-              </button>
-
-              {/* Physical Storage & Real-World Vault Inventory */}
-              <button
-                id="open-storage-inventory-btn"
-                onClick={onOpenStorageModal}
-                title="View physical containers, binders & safe locations"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shadow-sm active:scale-95 ${
-                  activeView === 'storage'
-                    ? 'bg-[#007AFF] text-white border-[#007AFF] font-semibold'
-                    : 'bg-white hover:bg-[#F2F2F7] text-[#1C1C1E] border-black/[0.08]'
-                }`}
-              >
-                <Box className={`w-3.5 h-3.5 ${activeView === 'storage' ? 'text-white' : 'text-[#007AFF]'}`} />
-                <span className="hidden sm:inline">Storage</span>
               </button>
 
               {/* Analytics / Portfolio Insights */}
               <button
                 id="open-analytics-btn"
                 onClick={onOpenAnalyticsModal}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] text-[#1C1C1E] border border-black/[0.08] text-xs font-medium transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] text-[#1C1C1E] border border-black/[0.08] text-xs font-medium transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <BarChart3 className="w-3.5 h-3.5 text-[#007AFF]" />
+                <BarChart3 className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
                 <span className="hidden lg:inline">Insights</span>
               </button>
 
@@ -351,25 +336,26 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
               <button
                 id="open-add-item-btn"
                 onClick={onOpenAddModal}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-semibold text-xs transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-semibold text-xs transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                <span>Add Asset</span>
+                <Plus className="w-4 h-4 stroke-[2.5] shrink-0" />
+                <span className="hidden xs:inline">Add Asset</span>
+                <span className="xs:hidden">Add</span>
               </button>
 
               {/* User Account / Profile Menu */}
-              <div className="h-5 w-[1px] bg-black/[0.08] mx-0.5" />
+              <div className="h-5 w-[1px] bg-black/[0.08] mx-0.5 shrink-0" />
               <UserMenu
                 onOpenAuthModal={onOpenAuthModal}
                 onOpenStorageInventory={onOpenStorageModal}
               />
 
               {/* More Settings Dropdown */}
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   id="settings-menu-btn"
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-                  className="p-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-[#8E8E93] hover:text-[#1C1C1E] transition-colors shadow-sm"
+                  className="p-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-[#8E8E93] hover:text-[#1C1C1E] transition-colors shadow-sm cursor-pointer shrink-0"
                 >
                   <SlidersHorizontal className="w-4 h-4" />
                 </button>
