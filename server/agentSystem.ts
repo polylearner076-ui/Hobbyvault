@@ -9,6 +9,7 @@
 
 import { GoogleGenAI, Type } from '@google/genai';
 import { executePricePipeline, CachedMarketPrice } from './dataPipeline.js';
+import { generateContentWithFallback } from './geminiService.js';
 
 export interface UpstreamSourceGroup {
   id: string;
@@ -248,8 +249,8 @@ Return a structured JSON evaluation adhering strictly to:
 - keyMarketDrivers: array of 3 concise market factors
 - comparableSalesAnalysis: string summarizing recent market sold comps trajectory`;
 
-    const response = await aiClient.models.generateContent({
-      model: 'gemini-3.7-flash',
+    const response = await generateContentWithFallback(aiClient, {
+      primaryModel: 'gemini-3.7-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',

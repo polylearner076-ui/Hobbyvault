@@ -8,8 +8,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { useVault } from '../context/VaultContext';
-import { PriceHistoryPoint, TimeRange } from '../types';
+import { useVault } from '../../context/VaultContext';
+import { PriceHistoryPoint, TimeRange } from '../../types';
 
 interface InteractivePriceChartProps {
   customHistory?: PriceHistoryPoint[];
@@ -37,17 +37,28 @@ export const InteractivePriceChart: React.FC<InteractivePriceChartProps> = ({
   const rawData = customHistory || portfolioHistory;
   const costUSD = customCostUSD !== undefined ? customCostUSD : totalCostUSD;
 
-  // Convert raw USD data into active currency
+  // Convert raw USD data into active currency with deduplication and timezone safety
   const chartData = useMemo(() => {
     if (!rawData || rawData.length === 0) return [];
-    return rawData.map((pt) => ({
-      date: pt.date,
-      displayDate: new Date(pt.date).toLocaleDateString(undefined, {
+
+    const map = new Map<string, number>();
+    rawData.forEach((pt) => {
+      if (pt && pt.date && typeof pt.priceUSD === 'number') {
+        map.set(pt.date, pt.priceUSD);
+      }
+    });
+
+    const sortedEntries = Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+    return sortedEntries.map(([date, priceUSD]) => ({
+      date,
+      displayDate: new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
       }),
-      value: convertPrice(pt.priceUSD),
-      priceUSD: pt.priceUSD,
+      value: convertPrice(priceUSD),
+      priceUSD,
     }));
   }, [rawData, convertPrice]);
 
@@ -59,7 +70,7 @@ export const InteractivePriceChart: React.FC<InteractivePriceChartProps> = ({
   }, [chartData]);
 
   const strokeColor = isPositive ? '#34C759' : '#FF3B30'; // Apple Mint Green vs Apple Red
-  const gradientId = `chartGradient-${isPositive ? 'green' : 'red'}-${Math.random().toString(36).substr(2, 4)}`;
+  const gradientId = `chartGradient-${isPositive ? 'green' : 'red'}-${Math.random().toString(36).substring(2, 6)}`;
 
   const ranges: TimeRange[] = ['7D', '1M', '3M', '6M', '1Y', 'ALL'];
 

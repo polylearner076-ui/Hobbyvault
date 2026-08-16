@@ -1,28 +1,35 @@
 import React, { useState } from 'react';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { VaultProvider, useVault } from './context/VaultContext';
-import { AppleNavbar } from './components/AppleNavbar';
-import { SandboxTabs } from './components/SandboxTabs';
-import { PortfolioHeader } from './components/PortfolioHeader';
-import { AssetGrid } from './components/AssetGrid';
-import { AssetDetailModal } from './components/AssetDetailModal';
-import { AddItemModal } from './components/AddItemModal';
-import { ScanModal } from './components/ScanModal';
-import { AnalyticsModal } from './components/AnalyticsModal';
-import { CustomSandboxModal } from './components/CustomSandboxModal';
-import { ApiDiagnosticsModal } from './components/ApiDiagnosticsModal';
-import { AuthModal } from './components/AuthModal';
+import { AppleNavbar } from './components/layout/AppleNavbar';
+import { SandboxTabs } from './components/portfolio/SandboxTabs';
+import { PortfolioHeader } from './components/portfolio/PortfolioHeader';
+import { AssetGrid } from './components/portfolio/AssetGrid';
+import { AssetDetailModal } from './components/modals/AssetDetailModal';
+import { AddItemModal } from './components/modals/AddItemModal';
+import { ScanModal } from './components/modals/ScanModal';
+import { AnalyticsModal } from './components/modals/AnalyticsModal';
+import { CustomSandboxModal } from './components/modals/CustomSandboxModal';
+import { ApiDiagnosticsModal } from './components/modals/ApiDiagnosticsModal';
+import { StorageInventoryModal } from './components/modals/StorageInventoryModal';
+import { AuthModal } from './components/auth/AuthModal';
+import { GuestWelcomeView } from './components/auth/GuestWelcomeView';
 import { AssetItem } from './types';
 
 function MainVaultApp() {
+  const { activeUserId } = useAuth();
   const { selectedItem, setSelectedItem } = useVault();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showStorageModal, setShowStorageModal] = useState(false);
   const [showNewSandboxModal, setShowNewSandboxModal] = useState(false);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
-  const [authModal, setAuthModal] = useState<{ isOpen: boolean; mode: 'signin' | 'register' }>({
+  const [authModal, setAuthModal] = useState<{
+    isOpen: boolean;
+    mode: 'signin' | 'register';
+  }>({
     isOpen: false,
     mode: 'signin',
   });
@@ -34,25 +41,37 @@ function MainVaultApp() {
         onOpenAddModal={() => setShowAddModal(true)}
         onOpenScanModal={() => setShowScanModal(true)}
         onOpenAnalyticsModal={() => setShowAnalyticsModal(true)}
+        onOpenStorageModal={() => setShowStorageModal(true)}
         onOpenNewSandboxModal={() => setShowNewSandboxModal(true)}
         onOpenDiagnosticsModal={() => setShowDiagnosticsModal(true)}
         onOpenAuthModal={(mode) => setAuthModal({ isOpen: true, mode })}
       />
 
-      {/* Sandboxed Hobby Vault Tabs */}
-      <SandboxTabs onOpenNewSandboxModal={() => setShowNewSandboxModal(true)} />
+      {/* Conditional Rendering: Guest Welcome View vs Authenticated Personal Vault */}
+      {!activeUserId ? (
+        <main className="flex-1 flex flex-col justify-center">
+          <GuestWelcomeView
+            onOpenAuthModal={(mode) => setAuthModal({ isOpen: true, mode })}
+          />
+        </main>
+      ) : (
+        <>
+          {/* Sandboxed Hobby Vault Tabs */}
+          <SandboxTabs onOpenNewSandboxModal={() => setShowNewSandboxModal(true)} />
 
-      {/* Main Dynamic Portfolio & Metric Banner */}
-      <PortfolioHeader />
+          {/* Main Dynamic Portfolio & Metric Banner */}
+          <PortfolioHeader />
 
-      {/* Main Asset Grid & Filter Area */}
-      <main className="flex-1">
-        <AssetGrid
-          onSelectItem={(item: AssetItem) => setSelectedItem(item)}
-          onOpenAddModal={() => setShowAddModal(true)}
-          onOpenScanModal={() => setShowScanModal(true)}
-        />
-      </main>
+          {/* Main Asset Grid & Filter Area */}
+          <main className="flex-1">
+            <AssetGrid
+              onSelectItem={(item: AssetItem) => setSelectedItem(item)}
+              onOpenAddModal={() => setShowAddModal(true)}
+              onOpenScanModal={() => setShowScanModal(true)}
+            />
+          </main>
+        </>
+      )}
 
       {/* Modals */}
       {selectedItem && (
@@ -74,12 +93,19 @@ function MainVaultApp() {
         <AnalyticsModal onClose={() => setShowAnalyticsModal(false)} />
       )}
 
+      {showStorageModal && (
+        <StorageInventoryModal onClose={() => setShowStorageModal(false)} />
+      )}
+
       {showNewSandboxModal && (
         <CustomSandboxModal onClose={() => setShowNewSandboxModal(false)} />
       )}
 
       {showDiagnosticsModal && (
-        <ApiDiagnosticsModal onClose={() => setShowDiagnosticsModal(false)} />
+        <ApiDiagnosticsModal
+          isOpen={showDiagnosticsModal}
+          onClose={() => setShowDiagnosticsModal(false)}
+        />
       )}
 
       <AuthModal

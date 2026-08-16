@@ -1,19 +1,17 @@
 import React, { useState, useRef } from 'react';
-import { useVault } from '../context/VaultContext';
-import { scanIdentifyAsset } from '../services/api';
+import { useVault } from '../../context/VaultContext';
+import { scanIdentifyAsset } from '../../services/api';
 import {
   X,
   Camera,
   Upload,
   Sparkles,
   ScanLine,
-  Check,
   RefreshCw,
-  Layers,
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
-import { HobbyType, ItemCondition } from '../types';
+import { HobbyType, ItemCondition } from '../../types';
 
 interface ScanModalProps {
   onClose: () => void;
@@ -48,7 +46,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-    } catch (err) {
+    } catch {
       alert('Camera access denied or unavailable. Please use photo upload.');
       setMode('upload');
     }
@@ -133,7 +131,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
     const estPrice = scanResult.estimatedPriceUSD || 25.0;
 
     addItem({
-      sandboxId: targetSandbox.id,
+      sandboxId: targetSandbox?.id || 'pokemon-vault',
       name: scanResult.name,
       category: targetCategory,
       imageUrl: selectedImage || (targetCategory === 'beyblade'
@@ -185,7 +183,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
               stopCamera();
               onClose();
             }}
-            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors"
+            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -198,7 +196,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
               stopCamera();
               setMode('upload');
             }}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
               mode === 'upload' ? 'border-[#007AFF] text-[#007AFF]' : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
             }`}
           >
@@ -206,7 +204,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
           </button>
           <button
             onClick={startCamera}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
               mode === 'camera' ? 'border-[#007AFF] text-[#007AFF]' : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
             }`}
           >
@@ -217,7 +215,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
               stopCamera();
               setMode('text');
             }}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
               mode === 'text' ? 'border-[#007AFF] text-[#007AFF]' : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
             }`}
           >
@@ -239,7 +237,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
               </div>
               <button
                 onClick={capturePhoto}
-                className="w-full py-3 rounded-2xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-3 rounded-2xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
                 <span>Capture Snapshot</span>
@@ -318,7 +316,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
             <button
               onClick={handleRunScan}
               disabled={isScanning || (!selectedImage && !textQuery.trim())}
-              className="w-full py-3 rounded-2xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 transition-all"
+              className="w-full py-3 rounded-2xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 transition-all cursor-pointer"
             >
               {isScanning ? (
                 <>
@@ -385,13 +383,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
               <div className="pt-2 flex gap-3">
                 <button
                   onClick={() => setScanResult(null)}
-                  className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] text-xs font-semibold"
+                  className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] text-xs font-semibold cursor-pointer"
                 >
                   Rescan
                 </button>
                 <button
                   onClick={handleAddScannedAsset}
-                  className="flex-1 py-2.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm"
+                  className="flex-1 py-2.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                 >
                   <span>Accept & Add to Sandbox</span>
                   <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />

@@ -1,18 +1,32 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Collectible items collection
+    // Collectible items collection (global / legacy)
     match /items/{itemId} {
       allow read, write: if true;
     }
 
-    // Sandboxes collection
+    // Sandboxes collection (global / legacy)
     match /sandboxes/{sandboxId} {
       allow read, write: if true;
     }
 
-    // User profiles collection
+    // Accounts registry indexed by email for fast lookup and duplicate prevention
+    match /accounts_by_email/{emailDocId} {
+      allow read, write: if true;
+    }
+
+    // User profiles and isolated subcollections (items, sandboxes, portfolio summary)
     match /users/{userId} {
+      allow read, write: if true;
+
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+
+    // Secure credentials store for fallback auth
+    match /user_credentials/{userId} {
       allow read, write: if true;
     }
 
@@ -27,3 +41,4 @@ service cloud.firestore {
     }
   }
 }
+

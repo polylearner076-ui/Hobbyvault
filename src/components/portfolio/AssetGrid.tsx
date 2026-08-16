@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
-import { useVault } from '../context/VaultContext';
-import { AssetItem } from '../types';
+import { useVault } from '../../context/VaultContext';
+import { AssetItem } from '../../types';
 import { AssetCard } from './AssetCard';
 import {
   Search,
   X,
-  SlidersHorizontal,
   LayoutGrid,
   List as ListIcon,
-  TrendingUp,
   Plus,
   Layers,
   Sparkles,
-  RotateCw,
 } from 'lucide-react';
 
 interface AssetGridProps {
@@ -36,7 +33,6 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
     setSortBy,
     formatPrice,
     activeSandbox,
-    activeSandboxId,
   } = useVault();
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -71,7 +67,7 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8E8E93] hover:text-[#1C1C1E] p-1"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8E8E93] hover:text-[#1C1C1E] p-1 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -84,7 +80,7 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
             <button
               key={c.id}
               onClick={() => setSelectedCondition(c.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                 selectedCondition === c.id
                   ? 'bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20'
                   : 'text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.04] border border-transparent'
@@ -116,7 +112,7 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
           <div className="flex items-center bg-[#F2F2F7] p-1 rounded-xl border border-black/[0.06]">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 viewMode === 'grid' ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93] hover:text-[#1C1C1E]'
               }`}
               title="Grid View"
@@ -125,7 +121,7 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded-lg transition-colors ${
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 viewMode === 'table' ? 'bg-white text-[#1C1C1E] shadow-sm' : 'text-[#8E8E93] hover:text-[#1C1C1E]'
               }`}
               title="Table View"
@@ -142,7 +138,7 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
           <div className="w-14 h-14 rounded-2xl bg-black/[0.04] flex items-center justify-center text-[#8E8E93] mb-4 border border-black/[0.06]">
             <Layers className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-bold text-[#1C1C1E] mb-1">No Assets Found</h3>
+          <h3 className="text-lg font-bold text-[#1C1C1E] mb-1">No Assets in View</h3>
           <p className="text-xs sm:text-sm text-[#8E8E93] max-w-sm mb-6">
             {searchQuery
               ? `No items matched your search query "${searchQuery}".`
@@ -153,14 +149,14 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={onOpenAddModal}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs transition-all shadow-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add From Catalog</span>
             </button>
             <button
               onClick={onOpenScanModal}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 font-semibold text-xs transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 font-semibold text-xs transition-all cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
               <span>AI Photo Scanner</span>

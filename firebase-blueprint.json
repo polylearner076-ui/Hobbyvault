@@ -83,17 +83,54 @@
     },
     "UserProfile": {
       "title": "UserProfile",
-      "description": "Registered user account profile and preferences",
+      "description": "Registered user account profile, auth credentials, and live portfolio valuation rollup",
       "properties": {
         "uid": { "type": "string", "description": "Firebase Auth UID" },
         "email": { "type": "string", "description": "User email address" },
         "displayName": { "type": "string", "description": "Display name or collector handle" },
         "photoURL": { "type": "string", "description": "Avatar photo URL" },
         "providerId": { "type": "string", "description": "Auth provider (google.com or password)" },
+        "primaryProvider": { "type": "string" },
+        "linkedProviders": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" },
+        "totalPortfolioValueUSD": { "type": "number", "description": "Aggregated market value of user's assets" },
+        "totalPortfolioCostUSD": { "type": "number", "description": "Total investment cost basis" },
+        "totalPortfolioGainLossUSD": { "type": "number", "description": "Net profit/loss in USD" },
+        "totalItems": { "type": "number", "description": "Number of assets in portfolio" },
+        "lastPortfolioUpdate": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "PortfolioSummary": {
+      "title": "PortfolioSummary",
+      "description": "User's full portfolio summary and asset valuation analytics stored at users/{userId}/portfolio/summary",
+      "properties": {
+        "userId": { "type": "string" },
+        "totalValueUSD": { "type": "number" },
+        "totalCostUSD": { "type": "number" },
+        "totalGainLossUSD": { "type": "number" },
+        "totalGainLossPercent": { "type": "number" },
+        "itemCount": { "type": "number" },
+        "sandboxCount": { "type": "number" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["userId", "totalValueUSD", "totalCostUSD", "itemCount", "lastUpdated"]
+    },
+    "RegisteredAccountRecord": {
+      "title": "RegisteredAccountRecord",
+      "description": "Account registry record stored at accounts_by_email/{emailDocId} for fast indexing and duplicate prevention",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "initialProvider": { "type": "string" },
+        "linkedProviders": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string" },
         "lastLoginAt": { "type": "string" }
       },
-      "required": ["uid"]
+      "required": ["uid", "email"]
     }
   }
 }

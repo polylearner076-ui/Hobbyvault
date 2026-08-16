@@ -66,6 +66,26 @@ export const INITIAL_SANDBOXES: Sandbox[] = [
   },
 ];
 
+// Helper to upsert a price history point deduplicating by date
+export function upsertPriceHistoryPoint(
+  history: { date: string; priceUSD: number }[] | undefined,
+  dateStr: string,
+  priceUSD: number
+): { date: string; priceUSD: number }[] {
+  const current = history ? [...history] : [];
+  const map = new Map<string, number>();
+  current.forEach((p) => {
+    if (p && p.date && typeof p.priceUSD === 'number') {
+      map.set(p.date, p.priceUSD);
+    }
+  });
+  map.set(dateStr, Number(priceUSD.toFixed(2)));
+
+  return Array.from(map.entries())
+    .map(([date, price]) => ({ date, priceUSD: price }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // Helper to generate realistic historical price curve leading to currentPrice
 export function generateHistory(
   currentPrice: number,
@@ -75,11 +95,13 @@ export function generateHistory(
 ): { date: string; priceUSD: number }[] {
   const points: { date: string; priceUSD: number }[] = [];
   const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
   
   const currentVal = currentPrice * startRatio;
   const step = (currentPrice - currentVal) / days;
+  const stepDays = days > 90 ? 7 : 1;
 
-  for (let i = days; i >= 0; i -= (days > 90 ? 7 : 1)) {
+  for (let i = days; i > 0; i -= stepDays) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
     const dateStr = d.toISOString().split('T')[0];
 
@@ -96,33 +118,39 @@ export function generateHistory(
       price = price * (1 + (Math.sin(progress * 10) * 0.03));
     }
 
-    if (i === 0) price = currentPrice;
     points.push({
       date: dateStr,
       priceUSD: Number(Math.max(1, price).toFixed(2)),
     });
   }
+
+  // Always ensure exact today's point (i = 0) is present and equals currentPrice
+  points.push({
+    date: todayStr,
+    priceUSD: Number(currentPrice.toFixed(2)),
+  });
+
   return points;
 }
 
 export const INITIAL_ITEMS: AssetItem[] = [
-  // POKEMON TCG ITEMS (Official TCGdex / PokemonTCG Live Data)
+  // POKEMON TCG ITEMS (Official TCGPlayer & PokemonTCG Live Data)
   {
     id: 'poke-01',
     sandboxId: 'sandbox-pokemon',
     name: 'Charizard ex #199/165 (Special Illustration Rare)',
     category: 'pokemon',
     imageUrl: 'https://images.pokemontcg.io/sv3pt5/199_hires.png',
-    currentPriceUSD: 142.50,
-    previousPriceUSD_24h: 139.00,
-    previousPriceUSD_7d: 132.00,
-    previousPriceUSD_30d: 118.00,
-    purchasePriceUSD: 110.00,
+    currentPriceUSD: 368.80,
+    previousPriceUSD_24h: 362.00,
+    previousPriceUSD_7d: 345.00,
+    previousPriceUSD_30d: 310.00,
+    purchasePriceUSD: 280.00,
     purchaseDate: '2024-11-12',
     quantity: 1,
     condition: 'PSA_10',
     tags: ['Scarlet & Violet 151', 'Charizard', 'Slab', 'SIR', 'Graded'],
-    priceHistory: generateHistory(142.50, 'bullish', 0.72),
+    priceHistory: generateHistory(368.80, 'bullish', 0.72),
     cardSpecs: {
       game: 'Pokemon',
       setName: 'Scarlet & Violet: 151',
@@ -141,13 +169,19 @@ export const INITIAL_ITEMS: AssetItem[] = [
         type: 'BUY',
         date: '2024-11-12',
         quantity: 1,
-        pricePerUnitUSD: 110.00,
-        notes: 'Purchased at local card convention PSA 10',
+        pricePerUnitUSD: 280.00,
+        notes: 'Purchased at card convention PSA 10',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Master Fireproof Safe (Office)',
+      container: 'Pelican 1500 Slab Case',
+      slot: 'Row 1, Slab #01',
+      notes: 'PSA 10 Gem Mint in fitted sleeve',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
-    marketSource: 'TCGdex Official & TCGPlayer Verified API',
+    marketSource: 'TCGPlayer Market Index (Live Official)',
   },
   {
     id: 'poke-02',
@@ -155,16 +189,16 @@ export const INITIAL_ITEMS: AssetItem[] = [
     name: 'Umbreon VMAX #215/203 (Secret Alt Art - Moonbreon)',
     category: 'pokemon',
     imageUrl: 'https://images.pokemontcg.io/swsh7/215_hires.png',
-    currentPriceUSD: 980.00,
-    previousPriceUSD_24h: 965.00,
-    previousPriceUSD_7d: 940.00,
-    previousPriceUSD_30d: 890.00,
-    purchasePriceUSD: 620.00,
+    currentPriceUSD: 2244.50,
+    previousPriceUSD_24h: 2210.00,
+    previousPriceUSD_7d: 2150.00,
+    previousPriceUSD_30d: 1980.00,
+    purchasePriceUSD: 1450.00,
     purchaseDate: '2024-03-10',
     quantity: 1,
     condition: 'PSA_10',
     tags: ['Evolving Skies', 'Umbreon', 'Grail', 'Alt Art', 'Slab'],
-    priceHistory: generateHistory(980.00, 'bullish', 0.60),
+    priceHistory: generateHistory(2244.50, 'bullish', 0.60),
     cardSpecs: {
       game: 'Pokemon',
       setName: 'Sword & Shield: Evolving Skies',
@@ -183,13 +217,19 @@ export const INITIAL_ITEMS: AssetItem[] = [
         type: 'BUY',
         date: '2024-03-10',
         quantity: 1,
-        pricePerUnitUSD: 620.00,
+        pricePerUnitUSD: 1450.00,
         notes: 'Moonbreon PSA 10 grail investment',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Master Fireproof Safe (Office)',
+      container: 'Pelican 1500 Slab Case',
+      slot: 'Row 1, Slab #02 (Grail Lock)',
+      notes: 'UV-shielded PSA 10 sleeve',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
-    marketSource: 'TCGdex Official & eBay Sold Comps API',
+    marketSource: 'TCGPlayer Market Index (Live Official)',
   },
   {
     id: 'poke-03',
@@ -197,16 +237,16 @@ export const INITIAL_ITEMS: AssetItem[] = [
     name: 'Pikachu with Grey Felt Hat #085 (Van Gogh Promo)',
     category: 'pokemon',
     imageUrl: 'https://images.pokemontcg.io/svp/85_hires.png',
-    currentPriceUSD: 185.00,
-    previousPriceUSD_24h: 182.50,
-    previousPriceUSD_7d: 175.00,
-    previousPriceUSD_30d: 160.00,
-    purchasePriceUSD: 95.00,
+    currentPriceUSD: 1098.70,
+    previousPriceUSD_24h: 1080.00,
+    previousPriceUSD_7d: 1020.00,
+    previousPriceUSD_30d: 950.00,
+    purchasePriceUSD: 450.00,
     purchaseDate: '2023-10-05',
     quantity: 2,
     condition: 'RAW_NM',
     tags: ['Promo', 'Van Gogh Museum', 'Pikachu', 'Sealed'],
-    priceHistory: generateHistory(185.00, 'dip_rebound', 0.50),
+    priceHistory: generateHistory(1098.70, 'dip_rebound', 0.50),
     cardSpecs: {
       game: 'Pokemon',
       setName: 'SV Black Star Promos (Van Gogh)',
@@ -227,6 +267,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Acquired 2 sealed copies from Amsterdam museum release',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Display Cabinet (Living Room)',
+      container: 'VaultX 9-Pocket Zip Binder (Teal)',
+      slot: 'Page 1, Slot 1-2 (Sealed Cellophane)',
+      notes: 'Original Amsterdam Museum receipt attached',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: false,
     marketSource: 'CardMarket & PriceCharting API',
@@ -269,6 +315,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'CGC Pristine 10 Gengar Alt Art',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Master Fireproof Safe (Office)',
+      container: 'Pelican 1500 Slab Case',
+      slot: 'Row 2, Slab #04',
+      notes: 'CGC Pristine 10',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: false,
     marketSource: 'PriceCharting Live API',
@@ -311,6 +363,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Playset of 4 for Modern Izzet Murktide deck',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Home Office Desk',
+      container: 'Ultimate Guard Bolder 100+ Deck Box',
+      slot: 'Main Deck #1-4',
+      notes: 'Double sleeved in KMC Perfect Fits & Dragon Shield Matte Red',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
     marketSource: 'Scryfall TCG Live API (Official)',
@@ -353,6 +411,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Pre-surge purchase PSA 10 copies',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Master Fireproof Safe (Office)',
+      container: 'Pelican 1500 Slab Case',
+      slot: 'Row 2, Slab #07',
+      notes: 'PSA 10 Lord of the Rings serialized candidate',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
     marketSource: 'Scryfall TCG Live API (Official)',
@@ -395,6 +459,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Grail Power 9 Reserved List addition',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Bank Safe Deposit Box #412',
+      container: 'Heavy Duty Metal Slab Case',
+      slot: 'Vault Compartment A (Subgrades: 9.5/9.5/9.5/9.0)',
+      notes: 'BGS Gem Mint 9.5 Unlimited Power 9',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
     marketSource: 'Scryfall TCG Live API (Official)',
@@ -439,6 +509,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Won via Japanese Beyblade X App Rare Bey Get & imported',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Display Cabinet (Living Room)',
+      container: 'Acrylic Display Showcase Tier 1',
+      slot: 'Pedestal 1 (Center Display)',
+      notes: 'Rare Bey Get Battle Limited Edition BX-00 in mint packaging',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
     marketSource: 'Takara Tomy & Tokyo Secondary Index',
@@ -481,6 +557,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Pre-ordered launch batch from AmiAmi',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Home Office Desk',
+      container: 'Meiho Beyblade Hard Case (3-Slot)',
+      slot: 'Bay 1 (Tournament Ready)',
+      notes: '5-70DB tuned balance for WBBA tournament play',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
     marketSource: 'Takara Tomy Official & Amazon JP Live API',
@@ -523,6 +605,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Includes Red Ripcord String Launcher',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Display Cabinet (Living Room)',
+      container: 'Acrylic Display Showcase Tier 1',
+      slot: 'Pedestal 2 (Right Tier)',
+      notes: 'NIB Starter with String Launcher',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: false,
     marketSource: 'Takara Tomy Official Specs Index',
@@ -565,6 +653,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Sealed Japanese Takara Tomy BB-28 box authenticated',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Archive Storage Closet',
+      container: 'BCW Vintage Storage Bin',
+      slot: 'Compartment 3',
+      notes: 'Original 2009 BB-28 Japanese First Print Box',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
     marketSource: 'Takara Tomy & Buyee Japan Verified Comps',
@@ -609,6 +703,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'OP-05 Manga Luffy BGS 10 pristine gold label',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Master Fireproof Safe (Office)',
+      container: 'Pelican 1500 Slab Case',
+      slot: 'Row 1, Slab #03',
+      notes: 'BGS 10 Gold Label Manga Luffy',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: true,
     marketSource: 'TCGPlayer / SNKRDUNK Live API',
@@ -641,6 +741,12 @@ export const INITIAL_ITEMS: AssetItem[] = [
         notes: 'Original box, inserts, wireless adapter, dry battery replaced',
       },
     ],
+    storageLocation: {
+      metaStorage: 'Display Cabinet (Living Room)',
+      container: 'Boxed Game Acrylic Stand',
+      slot: 'Shelf 3 Center',
+      notes: 'CIB authentic with replacement clock battery',
+    },
     lastUpdated: new Date().toISOString(),
     isFavorite: false,
     marketSource: 'PriceCharting Game Database API',

@@ -7,7 +7,6 @@ import {
   Play,
   Search,
   ExternalLink,
-  Zap,
   Clock,
   Database,
   Layers,
@@ -26,10 +25,9 @@ import {
   runApiPipelineTestSuite,
   testLiveApiQuery,
   getPipelineStats,
-  runIndividualAssetAudit,
   getSourceHealth,
   getAssetIntelligence,
-} from '../services/api';
+} from '../../services/api';
 
 interface ApiDiagnosticsModalProps {
   isOpen: boolean;
@@ -97,7 +95,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
   const handleEvaluateAgentIntel = async () => {
     setIsAgentEvaluating(true);
     try {
-      let sampleData = {
+      const sampleData = {
         name: selectedAgentSample,
         category: selectedAgentSample.includes('Charizard') || selectedAgentSample.includes('Umbreon') ? 'pokemon' : selectedAgentSample.includes('Black Lotus') ? 'mtg' : 'beyblade',
         condition: selectedAgentSample.includes('PSA 10') ? 'PSA_10' : 'RAW_NM',
@@ -120,7 +118,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
     try {
       const res = await testLiveApiQuery(queryInput.trim(), queryCategory);
       setQueryResult(res);
-    } catch (err) {
+    } catch {
       setQueryResult({ success: false, error: 'Query failed to execute' });
     } finally {
       setIsQuerying(false);
@@ -158,7 +156,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
                 </span>
               </div>
               <p className="text-xs text-[#8E8E93] mt-0.5">
-                WorldMonitor-inspired source freshness monitor, multi-market sold comps resolver & autonomous valuation agent
+                Source freshness monitor, multi-market sold comps resolver & autonomous valuation agent
               </p>
             </div>
           </div>
@@ -167,7 +165,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
             <button
               onClick={handleRunTests}
               disabled={isRunningTests}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
               <Play className={`w-3.5 h-3.5 fill-white ${isRunningTests ? 'animate-spin' : ''}`} />
               <span>{isRunningTests ? 'Auditing Vault...' : 'Run Full Accuracy Test'}</span>
@@ -175,7 +173,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
 
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-black/[0.05] hover:bg-black/[0.08] flex items-center justify-center text-[#8E8E93] hover:text-[#1C1C1E] transition-colors"
+              className="w-8 h-8 rounded-full bg-black/[0.05] hover:bg-black/[0.08] flex items-center justify-center text-[#8E8E93] hover:text-[#1C1C1E] transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -186,19 +184,19 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
         <div className="px-6 border-b border-black/[0.06] bg-[#F2F2F7]/50 flex gap-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('audit')}
-            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'audit'
                 ? 'border-[#007AFF] text-[#007AFF]'
                 : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>Individual Asset Audits ({assetAudit?.totalAssets || 13})</span>
+            <span>Individual Asset Audits ({assetAudit?.totalAssets || 0})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('sources')}
-            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'sources'
                 ? 'border-[#007AFF] text-[#007AFF]'
                 : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
@@ -210,7 +208,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
 
           <button
             onClick={() => setActiveTab('agent')}
-            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'agent'
                 ? 'border-[#007AFF] text-[#007AFF]'
                 : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
@@ -222,7 +220,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
 
           <button
             onClick={() => setActiveTab('pipeline')}
-            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'pipeline'
                 ? 'border-[#007AFF] text-[#007AFF]'
                 : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
@@ -234,7 +232,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
 
           <button
             onClick={() => setActiveTab('playground')}
-            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+            className={`py-2.5 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'playground'
                 ? 'border-[#007AFF] text-[#007AFF]'
                 : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
@@ -270,7 +268,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
                 {assetAudit ? `${assetAudit.averageAccuracyScore}% Avg Match` : '99.9%'}
               </div>
               <div className="text-[11px] text-[#8E8E93] font-medium mt-0.5">
-                {assetAudit ? `${assetAudit.passedCount} Passed, 0 Failures` : '13 Tracked Assets Verified'}
+                {assetAudit ? `${assetAudit.passedCount} Passed, 0 Failures` : 'Tracked Assets Verified'}
               </div>
             </div>
 
@@ -324,7 +322,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
                 <div className="p-8 text-center rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/50">
                   <Activity className="w-6 h-6 text-emerald-600 animate-spin mx-auto mb-2" />
                   <p className="text-xs font-semibold text-emerald-900">
-                    Pulling live market quotes for all Pokémon, Beyblade, MTG, and Gaming assets...
+                    Pulling live market quotes for all assets...
                   </p>
                 </div>
               )}
@@ -430,7 +428,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
             </div>
           )}
 
-          {/* TAB 2: UPSTREAM SOURCE GROUPS & FRESHNESS MONITOR (WorldMonitor Pattern) */}
+          {/* TAB 2: UPSTREAM SOURCE GROUPS & FRESHNESS MONITOR */}
           {activeTab === 'sources' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -440,12 +438,12 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
                     <span>Upstream Source Groups & Freshness Monitor</span>
                   </h4>
                   <p className="text-xs text-[#8E8E93] mt-0.5">
-                    Modeled after WorldMonitor's 35+ source groups monitor, tracking protocol, upstream host uptime, polling rate, and latency.
+                    Tracking protocol, upstream host uptime, polling rate, and latency across all live provider feeds.
                   </p>
                 </div>
                 <button
                   onClick={loadSourceHealth}
-                  className="px-3 py-1 rounded-xl bg-black/[0.05] hover:bg-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors"
+                  className="px-3 py-1 rounded-xl bg-black/[0.05] hover:bg-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors cursor-pointer"
                 >
                   Refresh Source Groups
                 </button>
@@ -532,7 +530,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
                 <button
                   onClick={handleEvaluateAgentIntel}
                   disabled={isAgentEvaluating}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-semibold shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 fill-white" />
                   <span>{isAgentEvaluating ? 'Agent Analyzing...' : 'Run Autonomous Appraisal'}</span>
@@ -773,7 +771,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
                   <button
                     type="submit"
                     disabled={isQuerying}
-                    className="px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white text-xs font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                    className="px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white text-xs font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
                   >
                     {isQuerying ? 'Fetching...' : 'Query Live API'}
                   </button>
@@ -838,7 +836,7 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-black/[0.06] hover:bg-black/[0.1] text-[#1C1C1E] font-medium transition-colors"
+            className="px-4 py-1.5 rounded-xl bg-black/[0.06] hover:bg-black/[0.1] text-[#1C1C1E] font-medium transition-colors cursor-pointer"
           >
             Close Console
           </button>
@@ -847,4 +845,3 @@ export const ApiDiagnosticsModal: React.FC<ApiDiagnosticsModalProps> = ({ isOpen
     </div>
   );
 };
-

@@ -54,6 +54,13 @@ export interface Transaction {
   notes?: string;
 }
 
+export interface StorageLocation {
+  metaStorage: string; // Top-level location/vault/furniture (e.g. "Fireproof Home Safe", "Display Cabinet A", "Bank Safe Deposit Box", "Office Shelf 2")
+  container: string;   // Specific storage container/binder/box (e.g. "VaultX 12-Pocket Binder", "Pelican 1500 Slab Case", "BCW Monster Box", "Deck Box")
+  slot?: string;       // Exact position/slot/page (e.g. "Page 4, Top-Right", "Slot #08", "Shelf 1 Center")
+  notes?: string;
+}
+
 export interface AssetItem {
   id: string;
   sandboxId: string;
@@ -74,9 +81,11 @@ export interface AssetItem {
   beybladeSpecs?: BeybladeSpecs;
   cardSpecs?: CardSpecs;
   transactions: Transaction[];
+  storageLocation?: StorageLocation;
   lastUpdated: string;
   isFavorite?: boolean;
   marketSource?: string; // e.g. 'TCGPlayer / PriceCharting / Takara Tomy Live'
+  userId?: string;
 }
 
 export interface Sandbox {
@@ -88,6 +97,7 @@ export interface Sandbox {
   themeColor: string; // e.g. '#FF3B30', '#007AFF', '#FF9500', '#AF52DE', '#34C759'
   createdAt: string;
   customFields?: { key: string; label: string; type: 'text' | 'number' | 'select' }[];
+  userId?: string;
 }
 
 export type TimeRange = '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL';
@@ -97,7 +107,9 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  providerId: 'google.com' | 'password' | string;
+  providerId: 'google.com' | 'password';
+  primaryProvider?: 'google.com' | 'password';
+  linkedProviders?: ('google.com' | 'password')[];
   createdAt?: string;
   lastLoginAt?: string;
 }

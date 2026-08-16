@@ -1,20 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { useVault } from '../context/VaultContext';
-import { POPULAR_CATALOG_ITEMS } from '../data/initialData';
-import { lookupLiveMarketPrice } from '../services/api';
+import { useVault } from '../../context/VaultContext';
+import { POPULAR_CATALOG_ITEMS } from '../../data/initialData';
+import { lookupLiveMarketPrice } from '../../services/api';
 import {
   X,
   Search,
   Plus,
-  Sparkles,
-  RotateCw,
-  Layers,
   RefreshCw,
-  Check,
-  Image,
-  DollarSign,
 } from 'lucide-react';
-import { AssetItem, HobbyType, ItemCondition } from '../types';
+import { HobbyType, ItemCondition } from '../../types';
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -41,7 +35,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Beyblade specific specs
+  // beyblade / card specific specs
   const [bbGen, setBbGen] = useState<'Beyblade X' | 'Burst' | 'Metal Fight' | 'Original / Plastics' | 'Other'>('Beyblade X');
   const [bbType, setBbType] = useState<'Attack' | 'Defense' | 'Stamina' | 'Balance'>('Attack');
   const [bbBlade, setBbBlade] = useState('');
@@ -55,6 +49,12 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   const [gradingCompany, setGradingCompany] = useState<'PSA' | 'BGS' | 'CGC' | 'None'>('None');
   const [gradeValue, setGradeValue] = useState('10');
   const [certNumber, setCertNumber] = useState('');
+
+  // Physical Storage Location State
+  const [metaStorage, setMetaStorage] = useState('Master Fireproof Safe (Office)');
+  const [container, setContainer] = useState('VaultX 12-Pocket Premium Zip Binder');
+  const [slot, setSlot] = useState('Page 1, Slot 1');
+  const [storageNotes, setStorageNotes] = useState('');
 
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<string | null>(null);
@@ -80,13 +80,28 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   }, [catalogSearch]);
 
   // Handle Quick Add from Catalog
-  const handleQuickAdd = (catalogItem: (typeof POPULAR_CATALOG_ITEMS)[0]) => {
+  const handleQuickAdd = async (catalogItem: (typeof POPULAR_CATALOG_ITEMS)[0]) => {
     const targetSandboxId =
       activeSandboxId !== 'all'
         ? activeSandboxId
-        : sandboxes.find((s) => s.type === catalogItem.category)?.id || sandboxes[0].id;
+        : sandboxes.find((s) => s.type === catalogItem.category)?.id || sandboxes[0]?.id || 'sandbox-pokemon';
 
-    addItem({
+    // Assign default storage based on category
+    const defaultStorage = catalogItem.category === 'beyblade'
+      ? {
+          metaStorage: 'Display Cabinet (Living Room)',
+          container: 'Acrylic Display Showcase Tier 1',
+          slot: 'Pedestal Showcase',
+          notes: 'Display casing enclosed',
+        }
+      : {
+          metaStorage: 'Master Fireproof Safe (Office)',
+          container: 'VaultX 12-Pocket Premium Zip Binder',
+          slot: 'Page 1, Slot 1',
+          notes: 'Standard collector sleeve',
+        };
+
+    await addItem({
       sandboxId: targetSandboxId,
       name: catalogItem.name,
       category: catalogItem.category as HobbyType,
@@ -100,13 +115,14 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
       priceHistory: [],
       beybladeSpecs: (catalogItem as any).beybladeSpecs,
       cardSpecs: (catalogItem as any).cardSpecs,
+      storageLocation: defaultStorage,
       transactions: [
         {
           id: `tx-${Date.now()}`,
           type: 'BUY',
           date: new Date().toISOString().split('T')[0],
           quantity: 1,
-          pricePerUnitUSD: Number((catalogItem.currentPriceUSD * 0.85).toFixed(2)),
+          priceUSD: Number((catalogItem.currentPriceUSD * 0.85).toFixed(2)),
           notes: 'Added from catalog',
         },
       ],
@@ -124,28 +140,23 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
     try {
       setIsFetchingPrice(true);
       setFetchStatus('Pulling live comps from market API...');
-      const res = await lookupLiveMarketPrice({
-        name,
-        category,
-        condition,
-        setOrGen: cardSet || bbGen,
-      });
+      const res = await lookupLiveMarketPrice({ name, category, condition });
 
       if (res && res.currentPriceUSD) {
         setCurrentPriceUSD(res.currentPriceUSD.toString());
         setPurchasePriceUSD((res.currentPriceUSD * 0.85).toFixed(2));
-        setFetchStatus(`Live market price found: $${res.currentPriceUSD} (${res.marketSource || 'API'})`);
+        setFetchStatus(`Live market price found: ${res.currentPriceUSD} (${res.marketSource || 'API'})`);
       } else {
         setFetchStatus('No live price feed found, using default estimate.');
       }
-    } catch (err) {
+    } catch {
       setFetchStatus('Price check error.');
     } finally {
       setIsFetchingPrice(false);
     }
   };
 
-  const handleCustomSubmit = (e: React.FormEvent) => {
+  const handleCustomSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
@@ -163,7 +174,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
         ? 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=600&q=80'
         : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
 
-    addItem({
+    await addItem({
       sandboxId,
       name: name.trim(),
       category,
@@ -199,13 +210,19 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
               certNumber: certNumber || undefined,
             }
           : undefined,
+      storageLocation: {
+        metaStorage: metaStorage.trim() || undefined,
+        container: container.trim() || undefined,
+        slot: slot.trim() || undefined,
+        notes: storageNotes.trim() || undefined,
+      },
       transactions: [
         {
           id: `tx-${Date.now()}`,
           type: 'BUY',
           date: purchaseDate,
           quantity: qty,
-          pricePerUnitUSD: buyPrice,
+          priceUSD: buyPrice,
           notes: notes || 'Initial purchase lot',
         },
       ],
@@ -228,7 +245,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors"
+            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -238,7 +255,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
         <div className="px-6 pt-3 border-b border-black/[0.06] bg-[#F2F2F7]/50 flex gap-2">
           <button
             onClick={() => setActiveTab('catalog')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
               activeTab === 'catalog'
                 ? 'border-[#007AFF] text-[#007AFF]'
                 : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
@@ -248,7 +265,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
           </button>
           <button
             onClick={() => setActiveTab('custom')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors ${
+            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
               activeTab === 'custom'
                 ? 'border-[#007AFF] text-[#007AFF]'
                 : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
@@ -298,7 +315,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                     </div>
                     <button
                       onClick={() => handleQuickAdd(catItem)}
-                      className="ml-2 px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-sm"
+                      className="ml-2 px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-sm cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                       <span>Add</span>
@@ -367,7 +384,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                     type="button"
                     onClick={handleEstimatePrice}
                     disabled={isFetchingPrice}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-[#007AFF] border border-[#007AFF]/20 font-semibold text-xs transition-colors shrink-0 disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-[#007AFF] border border-[#007AFF]/20 font-semibold text-xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isFetchingPrice ? 'animate-spin' : ''}`} />
                     <span>Fetch Price</span>
@@ -495,6 +512,70 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                 </div>
               )}
 
+              {/* Physical Storage Location Section */}
+              <div className="p-3.5 rounded-2xl bg-[#F2F2F7] border border-black/[0.06] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] font-bold text-[#007AFF] uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Physical Storage & Placement</span>
+                  </div>
+                  <span className="text-[10px] text-[#8E8E93]">Organize in binder, safe, or display box</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
+                      1. Meta Storage / Safe
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Master Fireproof Safe"
+                      value={metaStorage}
+                      onChange={(e) => setMetaStorage(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
+                      2. Container / Binder
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. VaultX 12-Pocket Binder"
+                      value={container}
+                      onChange={(e) => setContainer(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
+                      3. Slot / Page Position
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Page 1, Slot 1"
+                      value={slot}
+                      onChange={(e) => setSlot(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
+                    Storage Protection / Sleeve Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Double sleeved + Toploader + Silica Gel"
+                    value={storageNotes}
+                    onChange={(e) => setStorageNotes(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                  />
+                </div>
+              </div>
+
               {/* Image URL & Tags */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -528,13 +609,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] font-medium"
+                  className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs shadow-sm"
+                  className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs shadow-sm cursor-pointer"
                 >
                   Add to Vault
                 </button>

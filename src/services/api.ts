@@ -83,12 +83,20 @@ export async function lookupLiveMarketPrice(params: {
   }
 }
 
-export async function syncBatchPrices(items: { id: string; currentPriceUSD: number }[]) {
+export interface SyncBatchItemPayload {
+  id: string;
+  name: string;
+  category?: string;
+  currentPriceUSD?: number;
+  condition?: string;
+}
+
+export async function syncBatchPrices(items: SyncBatchItemPayload[], forceRefresh = false) {
   try {
     const res = await fetch('/api/pricing/sync-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items, forceRefresh }),
     });
     if (!res.ok) {
       console.warn('Sync batch returned', res.status);

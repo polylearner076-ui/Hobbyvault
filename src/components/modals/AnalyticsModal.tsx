@@ -1,16 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useVault } from '../context/VaultContext';
-import { fetchMarketInsights } from '../services/api';
+import { useVault } from '../../context/VaultContext';
+import { fetchMarketInsights } from '../../services/api';
 import {
   X,
   PieChart as PieChartIcon,
-  TrendingUp,
   Sparkles,
-  ShieldCheck,
   RefreshCw,
-  Award,
-  Layers,
-  Zap,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
@@ -91,7 +86,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({ onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors"
+            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -197,7 +192,7 @@ export const AnalyticsModal: React.FC<AnalyticsModalProps> = ({ onClose }) => {
               <button
                 onClick={handleLoadInsights}
                 disabled={loadingInsights}
-                className="text-[#8E8E93] hover:text-[#1C1C1E] p-1 transition-colors"
+                className="text-[#8E8E93] hover:text-[#1C1C1E] p-1 transition-colors cursor-pointer"
                 title="Refresh Insights"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loadingInsights ? 'animate-spin' : ''}`} />

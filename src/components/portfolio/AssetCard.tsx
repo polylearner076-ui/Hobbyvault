@@ -1,15 +1,9 @@
 import React from 'react';
-import { AssetItem } from '../types';
-import { useVault } from '../context/VaultContext';
+import { AssetItem } from '../../types';
+import { useVault } from '../../context/VaultContext';
 import {
-  TrendingUp,
-  TrendingDown,
   Star,
-  Sparkles,
-  Shield,
-  Layers,
-  ChevronRight,
-  RotateCw,
+  MapPin,
 } from 'lucide-react';
 
 interface AssetCardProps {
@@ -36,7 +30,6 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
     updateItem(item.id, { isFavorite: !item.isFavorite });
   };
 
-  // Condition Badge Renderer
   const renderConditionBadge = () => {
     if (item.condition.startsWith('PSA_10')) {
       return (
@@ -80,7 +73,6 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
     );
   };
 
-  // Beyblade Type Badge
   const renderBeybladeType = () => {
     if (!item.beybladeSpecs) return null;
     const type = item.beybladeSpecs.type;
@@ -120,7 +112,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
           {/* Floating Favorite Star */}
           <button
             onClick={toggleFavorite}
-            className="absolute top-2 right-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-[#8E8E93] hover:text-[#FF9500] backdrop-blur-md border border-black/[0.06] transition-colors shadow-sm"
+            className="absolute top-2 right-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-[#8E8E93] hover:text-[#FF9500] backdrop-blur-md border border-black/[0.06] transition-colors shadow-sm cursor-pointer"
           >
             <Star
               className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-[#FF9500] text-[#FF9500]' : ''}`}
@@ -172,12 +164,31 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
         <div className="text-xs text-[#8E8E93] mt-1 line-clamp-1 font-medium">
           {item.cardSpecs?.setName || (item.beybladeSpecs ? `${item.beybladeSpecs.brand} • ${item.beybladeSpecs.generation}` : (item.tags?.[0] || 'Collectible Asset'))}
         </div>
+
+        {/* Physical Storage Location Breadcrumb */}
+        {item.storageLocation?.container && (
+          <div className="mt-2 flex items-center gap-1 text-[10px] text-[#007AFF] bg-[#007AFF]/6 px-2 py-0.5 rounded-md border border-[#007AFF]/15 font-medium truncate">
+            <MapPin className="w-2.5 h-2.5 shrink-0 text-[#007AFF]" />
+            <span className="truncate">
+              {item.storageLocation.container}
+              {item.storageLocation.slot ? ` • ${item.storageLocation.slot}` : ''}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Bottom Pricing & Gain / Loss */}
       <div className="mt-4 pt-3 border-t border-black/[0.06] flex items-end justify-between">
         <div>
-          <div className="text-[10px] uppercase font-bold text-[#8E8E93]">Market Price</div>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] uppercase font-bold text-[#8E8E93]">Market Price</span>
+            {item.marketSource && (
+              <span
+                title={`Live feed source: ${item.marketSource}`}
+                className="w-1.5 h-1.5 rounded-full bg-emerald-500"
+              />
+            )}
+          </div>
           <div className="text-base font-extrabold text-[#1C1C1E] font-mono leading-tight">
             {formatPrice(item.currentPriceUSD)}
           </div>

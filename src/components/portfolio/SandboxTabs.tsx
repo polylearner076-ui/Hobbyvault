@@ -1,5 +1,5 @@
 import React from 'react';
-import { useVault } from '../context/VaultContext';
+import { useVault } from '../../context/VaultContext';
 import {
   Sparkles,
   RotateCw,
@@ -9,7 +9,6 @@ import {
   Layers,
   Plus,
   Box,
-  Trash2,
 } from 'lucide-react';
 
 interface SandboxTabsProps {
@@ -26,7 +25,6 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
     deleteSandbox,
   } = useVault();
 
-  // Map icon strings to Lucide components
   const getIcon = (iconName: string, className = 'w-4 h-4') => {
     switch (iconName) {
       case 'Sparkles':
@@ -44,7 +42,6 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
     }
   };
 
-  // Helper to compute value per sandbox
   const getSandboxStats = (sandboxId: string) => {
     const sbItems = sandboxId === 'all' ? items : items.filter((i) => i.sandboxId === sandboxId);
     const count = sbItems.reduce((acc, i) => acc + i.quantity, 0);
@@ -61,7 +58,7 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
         <button
           id="tab-sandbox-all"
           onClick={() => setActiveSandboxId('all')}
-          className={`group flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all duration-200 ${
+          className={`group flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
             activeSandboxId === 'all'
               ? 'bg-white text-[#1C1C1E] shadow-sm border border-black/[0.06]'
               : 'text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.03] border border-transparent'
@@ -92,7 +89,7 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
               <button
                 id={`tab-sandbox-${sb.id}`}
                 onClick={() => setActiveSandboxId(sb.id)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all duration-200 ${
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
                   isActive
                     ? 'bg-white text-[#1C1C1E] shadow-sm border border-black/[0.06]'
                     : 'text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.03] border border-transparent'
@@ -118,14 +115,13 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
               {/* Custom sandbox delete button (if user created custom) */}
               {sb.id.startsWith('sandbox-custom') && (
                 <button
-                  onClick={(e) => {
+                  id={`btn-delete-sandbox-${sb.id}`}
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (window.confirm(`Delete sandbox "${sb.name}" and its tracked items?`)) {
-                      deleteSandbox(sb.id);
-                    }
+                    await deleteSandbox(sb.id);
                   }}
                   title="Delete this custom sandbox"
-                  className="absolute -top-1 -right-1 hidden group-hover/tab:flex w-4 h-4 rounded-full bg-[#FF3B30] text-white items-center justify-center text-[10px] hover:bg-red-600 shadow"
+                  className="absolute -top-1 -right-1 hidden group-hover/tab:flex w-4 h-4 rounded-full bg-[#FF3B30] text-white items-center justify-center text-[10px] hover:bg-red-600 shadow cursor-pointer"
                 >
                   ×
                 </button>
@@ -138,7 +134,7 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
         <button
           id="btn-add-new-sandbox-tab"
           onClick={onOpenNewSandboxModal}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-semibold text-[#007AFF] hover:bg-[#007AFF]/10 border border-dashed border-[#007AFF]/30 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-semibold text-[#007AFF] hover:bg-[#007AFF]/10 border border-dashed border-[#007AFF]/30 transition-colors cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>New Hobby Vault</span>

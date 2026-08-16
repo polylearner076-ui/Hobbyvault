@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import { useVault } from '../context/VaultContext';
+import { useVault } from '../../context/VaultContext';
 import {
   X,
-  Plus,
   Sparkles,
   RotateCw,
   Anchor,
   Flame,
   Gamepad2,
   Box,
-  Layers,
   Check,
 } from 'lucide-react';
-import { HobbyType } from '../types';
+import { HobbyType } from '../../types';
 
 interface CustomSandboxModalProps {
   onClose: () => void;
@@ -47,11 +45,11 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
     { name: 'Gamepad2', icon: <Gamepad2 className="w-4 h-4" /> },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    addSandbox({
+    await addSandbox({
       name: name.trim(),
       type,
       description: description.trim() || `Dedicated vault for ${name.trim()} collectibles`,
@@ -76,7 +74,7 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors"
+            className="p-1.5 rounded-xl bg-white hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#1C1C1E] border border-black/[0.06] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -139,7 +137,7 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
                   key={c.color}
                   type="button"
                   onClick={() => setThemeColor(c.color)}
-                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform ${
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform cursor-pointer ${
                     themeColor === c.color ? 'scale-110 ring-2 ring-[#007AFF] shadow-md' : 'opacity-80 hover:opacity-100'
                   }`}
                   style={{ backgroundColor: c.color }}
@@ -161,7 +159,7 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
                   key={opt.name}
                   type="button"
                   onClick={() => setIconName(opt.name)}
-                  className={`p-2.5 rounded-xl border transition-colors flex items-center justify-center ${
+                  className={`p-2.5 rounded-xl border transition-colors flex items-center justify-center cursor-pointer ${
                     iconName === opt.name
                       ? 'bg-[#007AFF]/10 border-[#007AFF] text-[#007AFF]'
                       : 'bg-[#F2F2F7] border-black/[0.06] text-[#8E8E93] hover:text-[#1C1C1E]'
@@ -177,13 +175,13 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] font-medium"
+              className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] font-medium cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs shadow-sm"
+              className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs shadow-sm cursor-pointer"
             >
               Create Sandbox
             </button>

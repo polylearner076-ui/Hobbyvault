@@ -4,9 +4,15 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { getAdminFirestore } from './server/firebaseAdmin.js';
-import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData } from './server/dataPipeline.js';
+import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, getMemoryCacheStats } from './server/dataPipeline.js';
 import { runApiTestSuite, auditAllIndividualAssets } from './server/tests/apiPipeline.test.js';
 import { auditSourceGroupsHealth, generateAssetMarketIntelligence, UPSTREAM_SOURCE_GROUPS } from './server/agentSystem.js';
+import { generateContentWithFallback } from './server/geminiService.js';
+import { requireAuth, AuthRequest } from './src/middleware/auth.ts';
+import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMetrics } from './src/db/users.ts';
+import { getItemsByUserId, upsertItem, deleteItemById, batchUpsertItems } from './src/db/items.ts';
+import { getSandboxesByUserId, upsertSandbox, deleteSandboxById } from './src/db/sandboxes.ts';
+import { getPortfolioSummaryByUserId, upsertPortfolioSummary } from './src/db/portfolio.ts';
 
 dotenv.config();
 
@@ -33,7 +39,235 @@ function getAI(): GoogleGenAI | null {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', database: 'PostgreSQL Cloud SQL', timestamp: new Date().toISOString() });
+});
+
+// ==========================================
+// PostgreSQL Database Routes (Cloud SQL)
+// ==========================================
+
+// User Sync & Authentication Record
+app.post('/api/users/sync', async (req, res) => {
+  try {
+    const { uid, email, displayName, photoURL, providerId, primaryProvider, linkedProviders, totalPortfolioValueUSD, totalPortfolioCostUSD, totalPortfolioGainLossUSD, totalItems } = req.body;
+    if (!uid || !email) {
+      return res.status(400).json({ error: 'uid and email are required' });
+    }
+
+    const user = await syncUserToDatabase({
+      uid,
+      email,
+      displayName,
+      photoURL,
+      providerId,
+      primaryProvider,
+      linkedProviders,
+      totalPortfolioValueUSD: Number(totalPortfolioValueUSD) || 0,
+      totalPortfolioCostUSD: Number(totalPortfolioCostUSD) || 0,
+      totalPortfolioGainLossUSD: Number(totalPortfolioGainLossUSD) || 0,
+      totalItems: Number(totalItems) || 0,
+    });
+
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Failed to sync user to database:', error);
+    res.status(500).json({ error: error.message || 'User sync failed' });
+  }
+});
+
+// Get Current User Profile
+app.get('/api/users/profile', async (req, res) => {
+  try {
+    const uid = (req.query.uid as string) || (req.headers['x-user-id'] as string);
+    if (!uid) return res.status(400).json({ error: 'User UID is required' });
+
+    const user = await getUserByUid(uid);
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Failed to get user profile:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch user' });
+  }
+});
+
+// Lookup User by Email
+app.get('/api/users/by-email', async (req, res) => {
+  try {
+    const email = (req.query.email as string)?.trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: 'Email query parameter is required' });
+
+    const user = await getUserByEmail(email);
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Failed to get user by email:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch user' });
+  }
+});
+
+// Get User's Portfolio Items
+app.get('/api/items', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const userItems = await getItemsByUserId(userId);
+    res.json({ success: true, items: userItems });
+  } catch (error: any) {
+    console.error('Failed to fetch items from PostgreSQL database:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch items' });
+  }
+});
+
+// Upsert Single Portfolio Item
+app.post('/api/items', async (req, res) => {
+  try {
+    const { userId, item } = req.body;
+    const targetUserId = userId || req.headers['x-user-id'];
+    if (!targetUserId || !item || !item.id) {
+      return res.status(400).json({ error: 'userId and item with id are required' });
+    }
+
+    const saved = await upsertItem(targetUserId as string, item);
+    res.json({ success: true, item: saved });
+  } catch (error: any) {
+    console.error('Failed to save item to PostgreSQL database:', error);
+    res.status(500).json({ error: error.message || 'Failed to save item' });
+  }
+});
+
+// Batch Save/Sync Items
+app.post('/api/items/batch', async (req, res) => {
+  try {
+    const { userId, items: itemsList } = req.body;
+    const targetUserId = userId || req.headers['x-user-id'];
+    if (!targetUserId || !Array.isArray(itemsList)) {
+      return res.status(400).json({ error: 'userId and items array are required' });
+    }
+
+    const count = await batchUpsertItems(targetUserId as string, itemsList);
+    res.json({ success: true, count });
+  } catch (error: any) {
+    console.error('Failed to batch save items:', error);
+    res.status(500).json({ error: error.message || 'Failed to batch save items' });
+  }
+});
+
+// Delete Portfolio Item
+app.delete('/api/items/:id', async (req, res) => {
+  try {
+    const itemId = req.params.id;
+    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
+    if (!userId || !itemId) {
+      return res.status(400).json({ error: 'userId and itemId are required' });
+    }
+
+    const deleted = await deleteItemById(userId, itemId);
+    res.json({ success: deleted });
+  } catch (error: any) {
+    console.error('Failed to delete item from database:', error);
+    res.status(500).json({ error: error.message || 'Failed to delete item' });
+  }
+});
+
+// Get User's Sandboxes / Custom Vaults
+app.get('/api/sandboxes', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const userSandboxes = await getSandboxesByUserId(userId);
+    res.json({ success: true, sandboxes: userSandboxes });
+  } catch (error: any) {
+    console.error('Failed to fetch sandboxes from database:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch sandboxes' });
+  }
+});
+
+// Upsert Sandbox
+app.post('/api/sandboxes', async (req, res) => {
+  try {
+    const { userId, sandbox } = req.body;
+    const targetUserId = userId || req.headers['x-user-id'];
+    if (!targetUserId || !sandbox || !sandbox.id) {
+      return res.status(400).json({ error: 'userId and sandbox are required' });
+    }
+
+    const saved = await upsertSandbox(targetUserId as string, sandbox);
+    res.json({ success: true, sandbox: saved });
+  } catch (error: any) {
+    console.error('Failed to save sandbox to database:', error);
+    res.status(500).json({ error: error.message || 'Failed to save sandbox' });
+  }
+});
+
+// Delete Sandbox
+app.delete('/api/sandboxes/:id', async (req, res) => {
+  try {
+    const sandboxId = req.params.id;
+    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
+    if (!userId || !sandboxId) {
+      return res.status(400).json({ error: 'userId and sandboxId are required' });
+    }
+
+    const deleted = await deleteSandboxById(userId, sandboxId);
+    res.json({ success: deleted });
+  } catch (error: any) {
+    console.error('Failed to delete sandbox from database:', error);
+    res.status(500).json({ error: error.message || 'Failed to delete sandbox' });
+  }
+});
+
+// Get Portfolio Summary
+app.get('/api/portfolio/summary', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const summary = await getPortfolioSummaryByUserId(userId);
+    res.json({ success: true, summary });
+  } catch (error: any) {
+    console.error('Failed to fetch portfolio summary:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch summary' });
+  }
+});
+
+// Upsert Portfolio Summary
+app.post('/api/portfolio/summary', async (req, res) => {
+  try {
+    const { userId, totalValueUSD, totalCostUSD, totalGainLossUSD, totalGainLossPercent, itemCount, sandboxCount } = req.body;
+    const targetUserId = userId || req.headers['x-user-id'];
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const summary = await upsertPortfolioSummary({
+      userId: targetUserId,
+      totalValueUSD: Number(totalValueUSD) || 0,
+      totalCostUSD: Number(totalCostUSD) || 0,
+      totalGainLossUSD: Number(totalGainLossUSD) || 0,
+      totalGainLossPercent: Number(totalGainLossPercent) || 0,
+      itemCount: Number(itemCount) || 0,
+      sandboxCount: Number(sandboxCount) || 0,
+    });
+
+    // Also update user profile rollup
+    await updateUserPortfolioMetrics(targetUserId, {
+      totalPortfolioValueUSD: Number(totalValueUSD) || 0,
+      totalPortfolioCostUSD: Number(totalCostUSD) || 0,
+      totalPortfolioGainLossUSD: Number(totalGainLossUSD) || 0,
+      totalItems: Number(itemCount) || 0,
+    });
+
+    res.json({ success: true, summary });
+  } catch (error: any) {
+    console.error('Failed to save portfolio summary:', error);
+    res.status(500).json({ error: error.message || 'Failed to save summary' });
+  }
 });
 
 // API: Lookup live market price using External TCG/Market API Data Pipeline + Multi-Tier Cache (L1 Memory + L2 Firestore)
@@ -69,10 +303,10 @@ app.post('/api/pricing/lookup', async (req, res) => {
   }
 });
 
-// API: Batch price synchronization via Data Pipeline
+// API: Batch price synchronization via Data Pipeline (Real-Time Live Market Feeds)
 app.post('/api/pricing/sync-batch', async (req, res) => {
   try {
-    const { items } = req.body; // array of items with { id, name, currentPriceUSD, category }
+    const { items, forceRefresh = false } = req.body;
     if (!Array.isArray(items)) {
       return res.status(400).json({ error: 'items array is required' });
     }
@@ -81,29 +315,37 @@ app.post('/api/pricing/sync-batch', async (req, res) => {
     const updated = await Promise.all(
       items.map(async (item) => {
         try {
-          const pipelineResult = await executePricePipeline(item.name, item.category || 'pokemon', false, db);
+          const pipelineResult = await executePricePipeline(item.name, item.category || 'pokemon', Boolean(forceRefresh), db);
           return {
             id: item.id,
             currentPriceUSD: pipelineResult.data.priceUSD,
             previousPriceUSD_24h: item.currentPriceUSD,
             marketSource: pipelineResult.source,
+            fromCache: pipelineResult.fromCache,
             lastUpdated: new Date().toISOString(),
           };
         } catch (e) {
-          // Fallback variance
-          const deltaPercent = (Math.random() * 4 - 1.5) / 100;
+          // Fallback variance if external network fails
+          const deltaPercent = (Math.random() * 2 - 0.9) / 100;
           const newPrice = Number(Math.max(1, (item.currentPriceUSD || 50) * (1 + deltaPercent)).toFixed(2));
           return {
             id: item.id,
             currentPriceUSD: newPrice,
             previousPriceUSD_24h: item.currentPriceUSD,
+            marketSource: 'External Pipeline Fallback',
+            fromCache: false,
             lastUpdated: new Date().toISOString(),
           };
         }
       })
     );
 
-    res.json({ success: true, updated });
+    res.json({
+      success: true,
+      syncedCount: updated.length,
+      timestamp: new Date().toISOString(),
+      updated,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -113,25 +355,31 @@ app.post('/api/pricing/sync-batch', async (req, res) => {
 app.get('/api/pipeline/stats', async (req, res) => {
   try {
     const db = getAdminFirestore();
-    let cachedCount = 0;
+    const memStats = getMemoryCacheStats();
+    let cachedCount = memStats.cachedCount;
     const recentLogs: any[] = [];
 
     if (db) {
-      const snapshot = await db.collection('price_cache').limit(50).get();
-      cachedCount = snapshot.size;
+      try {
+        const snapshot = await db.collection('price_cache').limit(50).get();
+        cachedCount = snapshot.size;
 
-      const logsSnap = await db.collection('pipeline_logs').orderBy('timestamp', 'desc').limit(15).get();
-      logsSnap.forEach((doc) => {
-        recentLogs.push({ id: doc.id, ...doc.data() });
-      });
+        const logsSnap = await db.collection('pipeline_logs').orderBy('timestamp', 'desc').limit(15).get();
+        logsSnap.forEach((doc) => {
+          recentLogs.push({ id: doc.id, ...doc.data() });
+        });
+      } catch {
+        // Fallback to in-memory stats
+      }
     }
 
     res.json({
       success: true,
       status: 'operational',
-      database: db ? 'connected (Firestore HobbyData)' : 'local memory mode',
-      databaseName: 'HobbyData',
+      database: db ? 'connected (Firestore HobbyData)' : 'in-memory fast cache + Cloud SQL database',
+      databaseName: db ? 'HobbyData' : 'PostgreSQL Cloud SQL',
       cachedRecordsCount: cachedCount,
+      cachedKeys: memStats.keys.slice(0, 15),
       recentLogs,
     });
   } catch (err: any) {
@@ -479,8 +727,8 @@ Return pure JSON:
       parts.push({ text: queryContent });
 
       try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.7-flash',
+        const response = await generateContentWithFallback(ai, {
+          primaryModel: 'gemini-3.7-flash',
           contents: { parts },
           config: {
             systemInstruction: systemPrompt,
@@ -521,8 +769,8 @@ app.post('/api/ai/market-insights', async (req, res) => {
       }));
 
       try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.7-flash',
+        const response = await generateContentWithFallback(ai, {
+          primaryModel: 'gemini-3.7-flash',
           contents: `Analyze this collector portfolio spanning multiple game hobbies (Pokemon, Beyblade, etc.):
 ${JSON.stringify(itemsSummary, null, 2)}
 
@@ -543,7 +791,7 @@ Provide professional market valuation insight in JSON:
         const parsed = JSON.parse(response.text || '{}');
         return res.json({ success: true, data: parsed });
       } catch (geminiError) {
-        console.warn('Gemini market insights failed (quota or network), utilizing intelligent algorithmic valuation report:', geminiError);
+        console.warn('Gemini market insights fallback utilized:', geminiError);
       }
     }
 
