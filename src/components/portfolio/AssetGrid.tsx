@@ -46,9 +46,9 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
   ];
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-20">
       {/* Search & Filter Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 bg-white p-3 rounded-2xl border border-black/[0.06] shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3 mb-4 sm:mb-6 bg-white p-2.5 sm:p-3 rounded-2xl border border-black/[0.06] shadow-sm">
         {/* Search Bar */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-[#8E8E93] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -60,7 +60,7 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
             placeholder={
               activeSandbox
                 ? `Search ${activeSandbox.name} items, sets, parts...`
-                : 'Search all cards, Beyblades, sets, grades...'
+                : 'Search cards, Beyblades, sets, grades...'
             }
             className="w-full pl-9 pr-8 py-2 bg-[#F2F2F7] border border-black/[0.06] rounded-xl text-xs sm:text-sm text-[#1C1C1E] placeholder-[#8E8E93] focus:outline-none focus:border-[#007AFF] transition-colors"
           />
@@ -80,7 +80,7 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
             <button
               key={c.id}
               onClick={() => setSelectedCondition(c.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                 selectedCondition === c.id
                   ? 'bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20'
                   : 'text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.04] border border-transparent'
@@ -92,13 +92,13 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
         </div>
 
         {/* Sort and View Toggle */}
-        <div className="flex items-center gap-2 self-end md:self-auto">
+        <div className="flex items-center justify-between sm:justify-end gap-2">
           {/* Sort Dropdown */}
           <select
             id="sort-assets-select"
             value={sortBy}
             onChange={(e: any) => setSortBy(e.target.value)}
-            className="px-3 py-1.5 bg-[#F2F2F7] border border-black/[0.06] rounded-xl text-xs font-medium text-[#1C1C1E] focus:outline-none focus:border-[#007AFF] cursor-pointer"
+            className="px-2.5 sm:px-3 py-1.5 bg-[#F2F2F7] border border-black/[0.06] rounded-xl text-xs font-medium text-[#1C1C1E] focus:outline-none focus:border-[#007AFF] cursor-pointer"
           >
             <option value="value_desc">Highest Value</option>
             <option value="value_asc">Lowest Value</option>

@@ -245,6 +245,38 @@ export const INITIAL_ITEMS: AssetItem[] = [
     purchaseDate: '2023-10-05',
     quantity: 2,
     condition: 'RAW_NM',
+    copies: [
+      {
+        id: 'copy-p3-1',
+        condition: 'RAW_NM',
+        customConditionLabel: 'Near Mint (Sealed Cellophane)',
+        purchasePriceUSD: 95.00,
+        purchaseDate: '2023-10-05',
+        currentValueUSD: 1098.70,
+        storageLocation: {
+          metaStorage: 'Master Fireproof Safe (Office)',
+          container: 'Pelican 1500 Slab Case',
+          slot: 'Row 2, Top Slot (Museum Polybag Sealed)',
+          notes: 'Unopened sealed museum promo',
+        },
+        notes: 'Museum release with original brochure',
+      },
+      {
+        id: 'copy-p3-2',
+        condition: 'RAW_LP',
+        customConditionLabel: 'Well Condition (Light Play)',
+        purchasePriceUSD: 85.00,
+        purchaseDate: '2023-10-08',
+        currentValueUSD: 824.00,
+        storageLocation: {
+          metaStorage: 'Display Cabinet (Living Room)',
+          container: 'VaultX 9-Pocket Zip Binder (Teal)',
+          slot: 'Page 1, Slot 2',
+          notes: 'Minor corner soft touch from binder handling',
+        },
+        notes: 'Well preserved in double sleeve',
+      },
+    ],
     tags: ['Promo', 'Van Gogh Museum', 'Pikachu', 'Sealed'],
     priceHistory: generateHistory(1098.70, 'dip_rebound', 0.50),
     cardSpecs: {

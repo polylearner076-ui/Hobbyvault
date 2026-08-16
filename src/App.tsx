@@ -36,7 +36,7 @@ function MainVaultApp() {
   });
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] text-[#1C1C1E] flex flex-col font-sans selection:bg-[#007AFF] selection:text-white">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F2F2F7] text-[#1C1C1E] flex flex-col font-sans selection:bg-[#007AFF] selection:text-white">
       {/* Top Apple HIG Translucent Header */}
       <AppleNavbar
         onOpenAddModal={() => setShowAddModal(true)}

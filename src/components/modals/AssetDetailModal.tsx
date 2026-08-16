@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
-import { AssetItem, Transaction, StorageLocation } from '../../types';
+import { AssetItem, Transaction, StorageLocation, AssetCopy, ItemCondition } from '../../types';
 import { useVault } from '../../context/VaultContext';
 import { InteractivePriceChart } from '../portfolio/InteractivePriceChart';
 import { lookupLiveMarketPrice } from '../../services/api';
 import { StorageInventoryModal } from './StorageInventoryModal';
+import {
+  getConditionMeta,
+  calculateCopyValue,
+  calculateItemTotalValuation,
+  calculateItemTotalCost,
+  ensureCopiesForAsset,
+} from '../../utils/conditionUtils';
 import {
   X,
   Star,
@@ -28,6 +35,8 @@ import {
   Archive,
   MapPin,
   FolderPlus,
+  Copy,
+  Sliders,
 } from 'lucide-react';
 
 interface AssetDetailModalProps {
@@ -36,7 +45,7 @@ interface AssetDetailModalProps {
 }
 
 export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClose }) => {
-  const { sandboxes, updateItem, deleteItem, formatPrice, currencySymbol, convertPrice } = useVault();
+  const { sandboxes, updateItem, deleteItem, formatPrice, currencySymbol, convertPrice, storageUnits } = useVault();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(item.name);
@@ -49,6 +58,19 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
   const [editedNotes, setEditedNotes] = useState(item.notes || '');
   const [editedGradingCompany, setEditedGradingCompany] = useState(item.cardSpecs?.gradingCompany || 'None');
   const [editedGradeValue, setEditedGradeValue] = useState(item.cardSpecs?.gradeValue || '10');
+
+  // Copies State
+  const initialCopies = ensureCopiesForAsset(item);
+  const [copies, setCopies] = useState<AssetCopy[]>(initialCopies);
+  const [editingCopyId, setEditingCopyId] = useState<string | null>(null);
+  const [showAddCopyModal, setShowAddCopyModal] = useState(false);
+
+  // New Copy State
+  const [newCopyCondition, setNewCopyCondition] = useState<ItemCondition>('RAW_LP');
+  const [newCopyLabel, setNewCopyLabel] = useState('Well Condition (Light Play)');
+  const [newCopyCost, setNewCopyCost] = useState((item.currentPriceUSD * 0.75).toFixed(2));
+  const [newCopySlot, setNewCopySlot] = useState('');
+  const [newCopyNotes, setNewCopyNotes] = useState('');
 
   // Storage Location Edits
   const [editedMetaStorage, setEditedMetaStorage] = useState(item.storageLocation?.metaStorage || 'Master Fireproof Safe (Office)');
@@ -71,8 +93,8 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
   const [txPrice, setTxPrice] = useState(item.currentPriceUSD.toString());
   const [txNotes, setTxNotes] = useState('');
 
-  const totalValue = item.currentPriceUSD * item.quantity;
-  const totalCost = item.purchasePriceUSD * item.quantity;
+  const totalValue = calculateItemTotalValuation({ ...item, copies });
+  const totalCost = calculateItemTotalCost({ ...item, copies });
   const gainUSD = totalValue - totalCost;
   const gainPercent = totalCost > 0 ? (gainUSD / totalCost) * 100 : 0;
   const isGainPositive = gainUSD >= 0;
@@ -86,10 +108,83 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Copy Management Handlers
+  const handleAddNewCopy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const meta = getConditionMeta(newCopyCondition);
+    const pCost = parseFloat(newCopyCost) || item.currentPriceUSD * meta.multiplier;
+    const computedVal = item.currentPriceUSD * meta.multiplier;
+
+    const newCopy: AssetCopy = {
+      id: `copy-${Date.now()}-${copies.length + 1}`,
+      condition: newCopyCondition,
+      customConditionLabel: newCopyLabel.trim() || meta.shortLabel,
+      purchasePriceUSD: pCost,
+      purchaseDate: new Date().toISOString().split('T')[0],
+      currentValueUSD: Number(computedVal.toFixed(2)),
+      storageLocation: {
+        metaStorage: editedMetaStorage,
+        container: editedContainer,
+        slot: newCopySlot.trim() || undefined,
+        notes: newCopyNotes.trim() || undefined,
+      },
+      notes: newCopyNotes.trim() || undefined,
+    };
+
+    const updatedCopies = [...copies, newCopy];
+    setCopies(updatedCopies);
+    setShowAddCopyModal(false);
+
+    // Save to Firestore
+    await updateItem(item.id, {
+      copies: updatedCopies,
+      quantity: updatedCopies.length,
+    });
+
+    setSaveStatus(`Added ${newCopy.customConditionLabel} copy!`);
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const handleUpdateCopy = async (copyId: string, updates: Partial<AssetCopy>) => {
+    const updated = copies.map((c) => {
+      if (c.id !== copyId) return c;
+      const merged = { ...c, ...updates };
+      if (updates.condition) {
+        const meta = getConditionMeta(updates.condition);
+        merged.currentValueUSD = Number((item.currentPriceUSD * meta.multiplier).toFixed(2));
+      }
+      return merged;
+    });
+
+    setCopies(updated);
+    await updateItem(item.id, {
+      copies: updated,
+      quantity: updated.length,
+    });
+
+    setSaveStatus('Copy updated');
+    setTimeout(() => setSaveStatus(null), 2500);
+  };
+
+  const handleDeleteCopy = async (copyId: string) => {
+    if (copies.length <= 1) {
+      alert('Asset must have at least 1 copy. To remove the entire item, use Delete Asset.');
+      return;
+    }
+    const updated = copies.filter((c) => c.id !== copyId);
+    setCopies(updated);
+    await updateItem(item.id, {
+      copies: updated,
+      quantity: updated.length,
+    });
+    setSaveStatus('Copy removed');
+    setTimeout(() => setSaveStatus(null), 2500);
+  };
+
   const handleSaveEdits = async () => {
     const p = parseFloat(editedPrice) || item.currentPriceUSD;
     const c = parseFloat(editedCost) || item.purchasePriceUSD;
-    const q = parseInt(editedQty, 10) || 1;
+    const q = parseInt(editedQty, 10) || copies.length || 1;
 
     const storageLocation: StorageLocation = {
       metaStorage: editedMetaStorage.trim() || undefined,
@@ -98,12 +193,22 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
       notes: editedStorageNotes.trim() || undefined,
     };
 
+    // Update copies with new base price valuation
+    const refreshedCopies = copies.map((copy) => {
+      const meta = getConditionMeta(copy.condition);
+      return {
+        ...copy,
+        currentValueUSD: Number((p * meta.multiplier).toFixed(2)),
+      };
+    });
+
     const updates: Partial<AssetItem> = {
       name: editedName,
       currentPriceUSD: p,
       purchasePriceUSD: c,
       quantity: q,
       condition: editedCondition,
+      copies: refreshedCopies,
       purchaseDate: editedDate,
       sandboxId: editedSandboxId,
       notes: editedNotes,
@@ -120,7 +225,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
 
     await updateItem(item.id, updates);
     setIsEditing(false);
-    setSaveStatus('Asset & Physical Storage updated in Cloud SQL database!');
+    setSaveStatus('Asset & Condition configurations saved!');
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
@@ -573,8 +678,271 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
             </div>
           )}
 
+          {/* Dedicated Copies & Condition Management Card */}
+          <div className="bg-white rounded-3xl border border-black/[0.06] p-5 shadow-xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#007AFF]/10 text-[#007AFF] flex items-center justify-center">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1C1C1E]">
+                      Copies & Condition Breakdown
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-black text-white">
+                      {copies.length} {copies.length === 1 ? 'Copy' : 'Copies'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#8E8E93]">
+                    Manage individual copies, grading conditions (e.g. Well, Poor, Mint), and item locations
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddCopyModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Copy in Another Condition</span>
+              </button>
+            </div>
+
+            {/* List of individual copies */}
+            <div className="grid grid-cols-1 gap-2.5">
+              {copies.map((copy, index) => {
+                const meta = getConditionMeta(copy.condition);
+                const copyVal = calculateCopyValue(item.currentPriceUSD, copy);
+                const copyCost = copy.purchasePriceUSD ?? (item.purchasePriceUSD / copies.length);
+                const isEditingThis = editingCopyId === copy.id;
+
+                return (
+                  <div
+                    key={copy.id}
+                    className="p-3.5 rounded-2xl bg-[#F8F9FB] border border-black/[0.05] hover:border-black/[0.1] transition-all space-y-2.5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-black/[0.05] text-[#1C1C1E] text-xs font-mono font-bold flex items-center justify-center">
+                          #{index + 1}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${meta.badgeBg} ${meta.badgeBorder}`}>
+                          {copy.customConditionLabel || meta.shortLabel}
+                        </span>
+                        <span className="text-[11px] text-[#8E8E93] font-mono">
+                          ({(meta.multiplier * 100).toFixed(0)}% base multiplier)
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-xs font-bold font-mono text-[#1C1C1E]">
+                            {formatPrice(copyVal)}
+                          </div>
+                          <div className="text-[10px] text-[#8E8E93] font-mono">
+                            Cost: {formatPrice(copyCost)}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingCopyId(isEditingThis ? null : copy.id)}
+                          className="p-1.5 rounded-lg hover:bg-black/[0.05] text-[#8E8E93] hover:text-[#007AFF] transition-colors"
+                          title="Edit copy details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCopy(copy.id)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-[#8E8E93] hover:text-red-600 transition-colors"
+                          title="Delete copy"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Copy sub-details: location & notes */}
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#8E8E93]">
+                      {(copy.storageLocation?.container || copy.storageLocation?.slot) && (
+                        <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-black/[0.04]">
+                          <MapPin className="w-3 h-3 text-[#007AFF]" />
+                          <span>
+                            {copy.storageLocation.container || 'Vault Container'}
+                            {copy.storageLocation.slot ? ` • ${copy.storageLocation.slot}` : ''}
+                          </span>
+                        </div>
+                      )}
+                      {copy.notes && (
+                        <div className="italic text-[#1C1C1E]/80 bg-white px-2 py-0.5 rounded-md border border-black/[0.04] truncate max-w-[300px]">
+                          "{copy.notes}"
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inline editor for this copy */}
+                    {isEditingThis && (
+                      <div className="mt-2 pt-3 border-t border-black/[0.06] grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-white p-3 rounded-xl">
+                        <div>
+                          <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">Condition</label>
+                          <select
+                            value={copy.condition}
+                            onChange={(e) => handleUpdateCopy(copy.id, { condition: e.target.value as ItemCondition })}
+                            className="w-full px-2 py-1.5 bg-[#F2F2F7] border border-black/[0.08] rounded-lg text-xs"
+                          >
+                            <option value="PSA_10_GEM_MINT">PSA 10 Gem Mint (2.6x)</option>
+                            <option value="BGS_10_PRISTINE">BGS 10 Pristine (3.2x)</option>
+                            <option value="CGC_10_PRISTINE">CGC 10 Pristine (2.5x)</option>
+                            <option value="PSA_9_MINT">PSA 9 Mint (1.4x)</option>
+                            <option value="RAW_NM">Near Mint / Raw (1.0x)</option>
+                            <option value="RAW_LP">Well Condition / Light Play (0.75x)</option>
+                            <option value="RAW_MP">Moderately Played (0.50x)</option>
+                            <option value="RAW_HP">Poor Condition / Heavy Play (0.30x)</option>
+                            <option value="RAW_DMG">Damaged (0.15x)</option>
+                            <option value="NIB">New In Box / Sealed (1.8x)</option>
+                            <option value="USED_COMPLETE">Used Complete (0.8x)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">Cost Paid (USD)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={copy.purchasePriceUSD ?? ''}
+                            onChange={(e) => handleUpdateCopy(copy.id, { purchasePriceUSD: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-2 py-1.5 bg-[#F2F2F7] border border-black/[0.08] rounded-lg text-xs font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">Storage Slot / Notes</label>
+                          <input
+                            type="text"
+                            value={copy.storageLocation?.slot || ''}
+                            placeholder="e.g. Binder 2, Page 4"
+                            onChange={(e) => handleUpdateCopy(copy.id, {
+                              storageLocation: {
+                                ...copy.storageLocation,
+                                slot: e.target.value,
+                              }
+                            })}
+                            className="w-full px-2 py-1.5 bg-[#F2F2F7] border border-black/[0.08] rounded-lg text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Add Copy Modal Popup */}
+          {showAddCopyModal && (
+            <div className="p-4 rounded-2xl bg-[#007AFF]/5 border border-[#007AFF]/20 space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-[#007AFF]" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#007AFF]">
+                    Add New Copy in Different Condition
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCopyModal(false)}
+                  className="p-1 text-[#8E8E93] hover:text-[#1C1C1E]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddNewCopy} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">Select Condition</label>
+                  <select
+                    value={newCopyCondition}
+                    onChange={(e) => {
+                      const cond = e.target.value as ItemCondition;
+                      setNewCopyCondition(cond);
+                      const meta = getConditionMeta(cond);
+                      setNewCopyLabel(meta.label);
+                      setNewCopyCost((item.currentPriceUSD * meta.multiplier).toFixed(2));
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E]"
+                  >
+                    <option value="PSA_10_GEM_MINT">PSA 10 Gem Mint (2.6x value)</option>
+                    <option value="BGS_10_PRISTINE">BGS 10 Pristine (3.2x value)</option>
+                    <option value="CGC_10_PRISTINE">CGC 10 Pristine (2.5x value)</option>
+                    <option value="PSA_9_MINT">PSA 9 Mint (1.4x value)</option>
+                    <option value="RAW_NM">Near Mint / Raw (1.0x value)</option>
+                    <option value="RAW_LP">Well Condition / Light Play (0.75x value)</option>
+                    <option value="RAW_MP">Moderately Played (0.50x value)</option>
+                    <option value="RAW_HP">Poor Condition / Heavy Play (0.30x value)</option>
+                    <option value="RAW_DMG">Damaged (0.15x value)</option>
+                    <option value="NIB">New In Box / Sealed (1.8x value)</option>
+                    <option value="USED_COMPLETE">Used Complete (0.8x value)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">Custom Label</label>
+                  <input
+                    type="text"
+                    value={newCopyLabel}
+                    onChange={(e) => setNewCopyLabel(e.target.value)}
+                    placeholder="e.g. Well Condition (LP)"
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">Purchase Price (USD)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newCopyCost}
+                    onChange={(e) => setNewCopyCost(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">Specific Slot / Notes</label>
+                  <input
+                    type="text"
+                    value={newCopySlot}
+                    onChange={(e) => setNewCopySlot(e.target.value)}
+                    placeholder="e.g. Binder #2, Page 1"
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E]"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 md:col-span-4 flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCopyModal(false)}
+                    className="px-3 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] font-semibold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 bg-[#007AFF] hover:bg-[#0066D6] text-white rounded-xl text-xs font-semibold shadow-xs cursor-pointer"
+                  >
+                    Save Copy to Vault
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
           {/* Dedicated Physical Storage & Location Card */}
-          <div className="bg-white rounded-3xl border border-black/[0.06] p-5 shadow-sm space-y-4">
+          <div className="bg-white rounded-3xl border border-black/[0.06] p-5 shadow-xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-[#007AFF]/10 text-[#007AFF] flex items-center justify-center">

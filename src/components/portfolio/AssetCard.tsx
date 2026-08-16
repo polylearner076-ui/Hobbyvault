@@ -4,7 +4,14 @@ import { useVault } from '../../context/VaultContext';
 import {
   Star,
   MapPin,
+  Layers,
 } from 'lucide-react';
+import {
+  getConditionMeta,
+  calculateItemTotalValuation,
+  calculateItemTotalCost,
+  getConditionBreakdown,
+} from '../../utils/conditionUtils';
 
 interface AssetCardProps {
   item: AssetItem;
@@ -14,8 +21,8 @@ interface AssetCardProps {
 export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
   const { formatPrice, updateItem } = useVault();
 
-  const totalValue = item.currentPriceUSD * item.quantity;
-  const totalCost = item.purchasePriceUSD * item.quantity;
+  const totalValue = calculateItemTotalValuation(item);
+  const totalCost = calculateItemTotalCost(item);
   const gainUSD = totalValue - totalCost;
   const gainPercent = totalCost > 0 ? (gainUSD / totalCost) * 100 : 0;
   const isGainPositive = gainUSD >= 0;
@@ -30,31 +37,36 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
     updateItem(item.id, { isFavorite: !item.isFavorite });
   };
 
+  const hasMultipleCopies = item.copies && item.copies.length > 1;
+
   const renderConditionBadge = () => {
-    if (item.condition.startsWith('PSA_10')) {
+    if (hasMultipleCopies) {
       return (
-        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#FF3B30] text-white shadow-sm tracking-wider">
-          PSA 10 GEM MT
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20 flex items-center gap-1">
+          <Layers className="w-2.5 h-2.5" />
+          <span>{item.copies!.length} Copies • Multi-Condition</span>
         </span>
       );
     }
-    if (item.condition.startsWith('PSA_9')) {
+
+    const meta = getConditionMeta(item.condition);
+    if (item.condition.startsWith('PSA_10')) {
       return (
-        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-100 text-red-800 border border-red-200">
-          PSA 9 MINT
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#FF3B30] text-white shadow-xs tracking-wider">
+          PSA 10 GEM MT
         </span>
       );
     }
     if (item.condition.startsWith('BGS_10')) {
       return (
-        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#FF9500] text-white shadow-sm font-mono">
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#FF9500] text-white shadow-xs font-mono">
           BGS 10 PRISTINE
         </span>
       );
     }
     if (item.condition.startsWith('CGC_10')) {
       return (
-        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#007AFF] text-white shadow-sm">
+        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#007AFF] text-white shadow-xs">
           CGC 10 PRISTINE
         </span>
       );
@@ -67,8 +79,8 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
       );
     }
     return (
-      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/[0.05] text-[#1C1C1E] border border-black/[0.06]">
-        {item.condition.replace('_', ' ')}
+      <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${meta.badgeBg} ${meta.badgeBorder}`}>
+        {meta.shortLabel}
       </span>
     );
   };
@@ -93,7 +105,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
     <div
       id={`asset-card-${item.id}`}
       onClick={onClick}
-      className="group relative rounded-3xl bg-white hover:bg-white border border-black/[0.06] hover:border-black/[0.12] p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between text-[#1C1C1E]"
+      className="group relative rounded-3xl bg-white hover:bg-white border border-black/[0.06] hover:border-black/[0.12] p-4 transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between text-[#1C1C1E]"
     >
       {/* Top Media & Floating Badges */}
       <div>
@@ -112,23 +124,23 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
           {/* Floating Favorite Star */}
           <button
             onClick={toggleFavorite}
-            className="absolute top-2 right-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-[#8E8E93] hover:text-[#FF9500] backdrop-blur-md border border-black/[0.06] transition-colors shadow-sm cursor-pointer"
+            className="absolute top-2 right-2 p-1.5 rounded-full bg-white/80 hover:bg-white text-[#8E8E93] hover:text-[#FF9500] backdrop-blur-md border border-black/[0.06] transition-colors shadow-xs cursor-pointer"
           >
             <Star
               className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-[#FF9500] text-[#FF9500]' : ''}`}
             />
           </button>
 
-          {/* Quantity Badge if > 1 */}
-          {item.quantity > 1 && (
-            <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg bg-black/70 text-white font-mono text-[10px] font-bold">
-              x{item.quantity}
+          {/* Quantity / Copies Badge if > 1 */}
+          {(item.copies?.length || item.quantity) > 1 && (
+            <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-lg bg-black/75 text-white font-mono text-[10px] font-bold shadow-xs">
+              x{item.copies?.length || item.quantity} copies
             </span>
           )}
 
           {/* 24h move pill */}
           <div
-            className={`absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold backdrop-blur-md shadow-sm border ${
+            className={`absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold backdrop-blur-md shadow-xs border ${
               is24hPositive
                 ? 'bg-white/90 text-[#34C759] border-[#34C759]/30'
                 : 'bg-white/90 text-[#FF3B30] border-[#FF3B30]/30'
@@ -154,6 +166,13 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
             </span>
           )}
         </div>
+
+        {/* Multi-Condition breakdown row */}
+        {hasMultipleCopies && (
+          <div className="text-[10px] text-[#8E8E93] mb-1.5 bg-[#F2F2F7] px-2 py-1 rounded-lg line-clamp-1 border border-black/[0.04]">
+            {getConditionBreakdown(item)}
+          </div>
+        )}
 
         {/* Item Title */}
         <h3 className="font-bold text-sm text-[#1C1C1E] line-clamp-2 leading-snug group-hover:text-[#007AFF] transition-colors">
@@ -181,7 +200,9 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
       <div className="mt-4 pt-3 border-t border-black/[0.06] flex items-end justify-between">
         <div>
           <div className="flex items-center gap-1">
-            <span className="text-[10px] uppercase font-bold text-[#8E8E93]">Market Price</span>
+            <span className="text-[10px] uppercase font-bold text-[#8E8E93]">
+              {hasMultipleCopies ? 'Total Asset Value' : 'Market Price'}
+            </span>
             {item.marketSource && (
               <span
                 title={`Live feed source: ${item.marketSource}`}
@@ -190,11 +211,11 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
             )}
           </div>
           <div className="text-base font-extrabold text-[#1C1C1E] font-mono leading-tight">
-            {formatPrice(item.currentPriceUSD)}
+            {formatPrice(hasMultipleCopies ? totalValue : item.currentPriceUSD)}
           </div>
-          {item.quantity > 1 && (
+          {hasMultipleCopies && (
             <div className="text-[10px] text-[#8E8E93] font-mono">
-              Total: {formatPrice(totalValue)}
+              Raw Base: {formatPrice(item.currentPriceUSD)}
             </div>
           )}
         </div>

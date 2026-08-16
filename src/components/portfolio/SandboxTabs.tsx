@@ -6,7 +6,7 @@ import {
   Anchor,
   Flame,
   Gamepad2,
-  Layers,
+  LayoutGrid,
   Plus,
   Box,
 } from 'lucide-react';
@@ -52,24 +52,24 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
   const allStats = getSandboxStats('all');
 
   return (
-    <div className="w-full overflow-x-auto no-scrollbar py-2.5 border-b border-black/[0.06] bg-[#F2F2F7]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-2 min-w-max">
+    <div className="w-full overflow-x-auto no-scrollbar py-2 border-b border-black/[0.06] bg-[#F2F2F7]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex items-center gap-1.5 sm:gap-2 min-w-max">
         {/* All Portfolios Tab */}
         <button
           id="tab-sandbox-all"
           onClick={() => setActiveSandboxId('all')}
-          className={`group flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+          className={`group flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
             activeSandboxId === 'all'
               ? 'bg-white text-[#1C1C1E] shadow-sm border border-black/[0.06]'
               : 'text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.03] border border-transparent'
           }`}
         >
           <div
-            className={`w-6 h-6 rounded-xl flex items-center justify-center transition-colors ${
+            className={`w-5 h-5 sm:w-6 sm:h-6 rounded-xl flex items-center justify-center transition-colors ${
               activeSandboxId === 'all' ? 'bg-[#007AFF] text-white shadow-sm' : 'bg-black/[0.05] text-[#8E8E93] group-hover:text-[#1C1C1E]'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <LayoutGrid className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </div>
           <div className="flex flex-col text-left">
             <span className="leading-tight font-bold">All Portfolios</span>
@@ -89,20 +89,20 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
               <button
                 id={`tab-sandbox-${sb.id}`}
                 onClick={() => setActiveSandboxId(sb.id)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+                className={`flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
                   isActive
                     ? 'bg-white text-[#1C1C1E] shadow-sm border border-black/[0.06]'
                     : 'text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.03] border border-transparent'
                 }`}
               >
                 <div
-                  className="w-6 h-6 rounded-xl flex items-center justify-center transition-colors shadow-sm"
+                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-xl flex items-center justify-center transition-colors shadow-sm"
                   style={{
                     backgroundColor: isActive ? sb.themeColor : `${sb.themeColor}15`,
                     color: isActive ? '#fff' : sb.themeColor,
                   }}
                 >
-                  {getIcon(sb.iconName, 'w-3.5 h-3.5')}
+                  {getIcon(sb.iconName, 'w-3 h-3 sm:w-3.5 sm:h-3.5')}
                 </div>
                 <div className="flex flex-col text-left">
                   <span className="leading-tight font-bold">{sb.name}</span>

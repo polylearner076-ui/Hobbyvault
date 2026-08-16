@@ -6,7 +6,6 @@ import {
   ScanLine,
   Plus,
   BarChart3,
-  SlidersHorizontal,
   Download,
   Upload,
   RotateCcw,
@@ -61,7 +60,6 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
   const { activeUserId } = useAuth();
   const isLoggedIn = !!activeUserId;
 
-  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false);
   const [showSyncDropdown, setShowSyncDropdown] = useState(false);
 
@@ -86,13 +84,11 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
       }
     };
     input.click();
-    setShowSettingsDropdown(false);
   };
 
   const handleReset = async () => {
     if (window.confirm('Reset all sandboxes and portfolio data in your Firestore vault to initial state?')) {
       await resetToDefaults();
-      setShowSettingsDropdown(false);
     }
   };
 
@@ -101,24 +97,35 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
       id="apple-navbar"
       className="sticky top-0 z-40 w-full backdrop-blur-xl bg-white/90 border-b border-black/[0.06] text-[#1C1C1E] transition-all"
     >
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
+      {/* Click-away backdrop overlay for dropdowns in navbar */}
+      {(showCurrencyDropdown || showSyncDropdown) && (
+        <div
+          className="fixed inset-0 z-40 bg-transparent"
+          onClick={() => {
+            setShowCurrencyDropdown(false);
+            setShowSyncDropdown(false);
+          }}
+        />
+      )}
+
+      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1 sm:gap-4 relative z-40">
         {/* Left: App Logo & Microservice View Switcher */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
           <button
             onClick={() => setActiveView('portfolio')}
-            className="flex items-center gap-2 text-left cursor-pointer focus:outline-none shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 text-left cursor-pointer focus:outline-none shrink-0"
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-[#007AFF] via-indigo-500 to-sky-400 p-[1px] shadow-sm flex items-center justify-center shrink-0">
-              <div className="w-full h-full bg-white rounded-[11px] flex items-center justify-center">
-                <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-[#007AFF]" />
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-[#007AFF] via-indigo-500 to-sky-400 p-[1px] shadow-sm flex items-center justify-center shrink-0">
+              <div className="w-full h-full bg-white rounded-[10px] sm:rounded-[11px] flex items-center justify-center">
+                <Layers className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-[#007AFF]" />
               </div>
             </div>
-            <div className="hidden xs:block">
+            <div className="hidden sm:block">
               <div className="flex items-center gap-1.5">
                 <span className="font-semibold tracking-tight text-sm sm:text-base text-[#1C1C1E] whitespace-nowrap">
                   Collector<span className="text-[#007AFF] font-bold">Vault</span>
                 </span>
-                <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20">
+                <span className="hidden md:inline text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20">
                   Pro
                 </span>
               </div>
@@ -127,30 +134,31 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
 
           {/* Microservice View Switcher: Single unified toggle */}
           {isLoggedIn ? (
-            <div className="flex items-center bg-black/[0.04] p-0.5 sm:p-1 rounded-xl border border-black/[0.06] text-xs font-semibold shrink-0">
+            <div className="flex items-center bg-black/[0.04] p-0.5 rounded-xl border border-black/[0.06] text-[11px] sm:text-xs font-semibold shrink-0">
               <button
                 id="nav-view-portfolio-btn"
                 onClick={() => setActiveView('portfolio')}
-                className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                   activeView === 'portfolio'
-                    ? 'bg-white text-[#1C1C1E] shadow-2xs'
+                    ? 'bg-white text-[#1C1C1E] shadow-2xs font-bold'
                     : 'text-[#8E8E93] hover:text-[#1C1C1E]'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
-                <span className="text-xs">Portfolios</span>
+                <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#007AFF] shrink-0" />
+                <span className="hidden xs:inline">Portfolios</span>
+                <span className="xs:hidden">Vault</span>
               </button>
               <button
                 id="nav-view-storage-btn"
                 onClick={() => setActiveView('storage')}
-                className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                   activeView === 'storage'
-                    ? 'bg-[#007AFF] text-white shadow-2xs'
+                    ? 'bg-[#007AFF] text-white shadow-2xs font-bold'
                     : 'text-[#8E8E93] hover:text-[#1C1C1E]'
                 }`}
               >
-                <Box className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-xs">Storage</span>
+                <Box className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                <span>Storage</span>
               </button>
             </div>
           ) : (
@@ -164,13 +172,13 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Currency Switcher (Always available) */}
-          <div className="relative shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Currency Switcher */}
+          <div className="relative shrink-0 hidden md:block">
             <button
               id="currency-switcher-btn"
               onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
-              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors shadow-sm cursor-pointer whitespace-nowrap"
             >
               <span>{currency}</span>
               <ChevronDown className="w-3 h-3 text-[#8E8E93]" />
@@ -201,7 +209,7 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
           {isLoggedIn ? (
             <>
               {/* Live Real-Time Sync & Auto-Refresh Control */}
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 hidden md:block">
                 <button
                   id="sync-market-prices-btn"
                   onClick={() => setShowSyncDropdown(!showSyncDropdown)}
@@ -215,7 +223,7 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
                     <span className={`relative inline-flex rounded-full h-2 w-2 ${isAutoSyncEnabled ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
                   </span>
                   <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline font-semibold">
+                  <span className="font-semibold">
                     {isSyncing ? 'Syncing...' : isAutoSyncEnabled ? `Live ${nextSyncCountdown}s` : 'Live Prices'}
                   </span>
                   <ChevronDown className="w-3 h-3 text-[#8E8E93] shrink-0" />
@@ -314,92 +322,49 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
 
               {/* AI Scanner Trigger */}
               <button
+                type="button"
                 id="open-scan-modal-btn"
                 onClick={onOpenScanModal}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                className="flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                title="AI Card & Beyblade Scanner"
               >
-                <ScanLine className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <span className="hidden md:inline">AI Scanner</span>
+                <ScanLine className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-indigo-500 shrink-0" />
+                <span className="hidden sm:inline">AI Scanner</span>
               </button>
 
               {/* Analytics / Portfolio Insights */}
               <button
+                type="button"
                 id="open-analytics-btn"
                 onClick={onOpenAnalyticsModal}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] text-[#1C1C1E] border border-black/[0.08] text-xs font-medium transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                className="hidden lg:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] text-[#1C1C1E] border border-black/[0.08] text-xs font-medium transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                title="Portfolio Insights"
               >
                 <BarChart3 className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
-                <span className="hidden lg:inline">Insights</span>
+                <span>Insights</span>
               </button>
 
               {/* Primary Add Asset Button */}
               <button
+                type="button"
                 id="open-add-item-btn"
                 onClick={onOpenAddModal}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-semibold text-xs transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-semibold text-xs transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <Plus className="w-4 h-4 stroke-[2.5] shrink-0" />
-                <span className="hidden xs:inline">Add Asset</span>
-                <span className="xs:hidden">Add</span>
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] shrink-0" />
+                <span className="hidden xs:inline">Add</span>
+                <span className="hidden md:inline">Asset</span>
               </button>
 
-              {/* User Account / Profile Menu */}
-              <div className="h-5 w-[1px] bg-black/[0.08] mx-0.5 shrink-0" />
+              {/* User Account / Profile Menu (includes storage inventory & vault tools) */}
               <UserMenu
                 onOpenAuthModal={onOpenAuthModal}
                 onOpenStorageInventory={onOpenStorageModal}
+                onOpenDiagnosticsModal={onOpenDiagnosticsModal}
+                onExportJSON={exportJSON}
+                onImportJSON={handleImportClick}
+                onResetPortfolio={handleReset}
               />
-
-              {/* More Settings Dropdown */}
-              <div className="relative shrink-0">
-                <button
-                  id="settings-menu-btn"
-                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-                  className="p-1.5 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-[#8E8E93] hover:text-[#1C1C1E] transition-colors shadow-sm cursor-pointer shrink-0"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                </button>
-
-                {showSettingsDropdown && (
-                  <div
-                    className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-black/[0.08] shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 text-xs"
-                    onClick={() => setShowSettingsDropdown(false)}
-                  >
-                    <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#8E8E93]">
-                      Data & Backup
-                    </div>
-                    <button
-                      onClick={exportJSON}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[#1C1C1E] hover:bg-black/[0.04] transition-colors font-medium"
-                    >
-                      <Download className="w-4 h-4 text-[#34C759]" />
-                      <span>Export Vault (JSON)</span>
-                    </button>
-                    <button
-                      onClick={handleImportClick}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[#1C1C1E] hover:bg-black/[0.04] transition-colors font-medium"
-                    >
-                      <Upload className="w-4 h-4 text-[#007AFF]" />
-                      <span>Import Backup JSON</span>
-                    </button>
-                    <div className="my-1 h-[1px] bg-black/[0.06]" />
-                    <button
-                      onClick={onOpenDiagnosticsModal}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[#1C1C1E] hover:bg-black/[0.04] transition-colors font-medium"
-                    >
-                      <Activity className="w-4 h-4 text-emerald-600" />
-                      <span>API Pipeline Diagnostics</span>
-                    </button>
-                    <button
-                      onClick={handleReset}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[#FF3B30] hover:bg-red-50 transition-colors font-medium"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      <span>Reset Portfolio to Default</span>
-                    </button>
-                  </div>
-                )}
-              </div>
             </>
           ) : (
             /* GUEST STATE: SIGN IN / REGISTER CTA */

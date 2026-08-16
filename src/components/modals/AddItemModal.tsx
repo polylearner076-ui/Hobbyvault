@@ -15,11 +15,28 @@ import {
   Loader2,
   ExternalLink,
   ShieldCheck,
+  Plus,
+  Trash2,
+  Copy,
+  Info,
 } from 'lucide-react';
-import { HobbyType, ItemCondition } from '../../types';
+import { HobbyType, ItemCondition, AssetCopy } from '../../types';
+import { CONDITION_METAS, getConditionMeta, calculateCopyValue } from '../../utils/conditionUtils';
 
 interface AddItemModalProps {
   onClose: () => void;
+}
+
+interface NewCopyDraft {
+  id: string;
+  condition: ItemCondition;
+  customConditionLabel: string;
+  purchasePriceUSD: string;
+  purchaseDate: string;
+  storageMeta: string;
+  storageContainer: string;
+  storageSlot: string;
+  notes: string;
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
@@ -39,6 +56,33 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   const [condition, setCondition] = useState<ItemCondition>('RAW_NM');
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Multi-copy toggle & state (for assets with multiple copies in different conditions)
+  const [useMultiCopies, setUseMultiCopies] = useState(false);
+  const [copiesDrafts, setCopiesDrafts] = useState<NewCopyDraft[]>([
+    {
+      id: 'draft-copy-1',
+      condition: 'RAW_NM',
+      customConditionLabel: 'Near Mint',
+      purchasePriceUSD: '20.00',
+      purchaseDate: new Date().toISOString().split('T')[0],
+      storageMeta: 'Master Fireproof Safe (Office)',
+      storageContainer: 'VaultX 12-Pocket Premium Zip Binder',
+      storageSlot: 'Page 1, Slot 1',
+      notes: '',
+    },
+    {
+      id: 'draft-copy-2',
+      condition: 'RAW_LP',
+      customConditionLabel: 'Well Condition (Light Play)',
+      purchasePriceUSD: '15.00',
+      purchaseDate: new Date().toISOString().split('T')[0],
+      storageMeta: 'Master Fireproof Safe (Office)',
+      storageContainer: 'VaultX 12-Pocket Premium Zip Binder',
+      storageSlot: 'Page 1, Slot 2',
+      notes: '',
+    },
+  ]);
 
   // beyblade / card specific specs
   const [bbGen, setBbGen] = useState<'Beyblade X' | 'Burst' | 'Metal Fight' | 'Original / Plastics' | 'Other'>('Beyblade X');
@@ -80,6 +124,38 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
     if (match) {
       setCategory(match.type);
     }
+  };
+
+  // Add copy to draft
+  const handleAddCopyDraft = (presetCondition: ItemCondition = 'RAW_LP') => {
+    const meta = getConditionMeta(presetCondition);
+    const baseP = parseFloat(currentPriceUSD) || 20;
+    const estVal = (baseP * meta.multiplier).toFixed(2);
+    setCopiesDrafts((prev) => [
+      ...prev,
+      {
+        id: `draft-copy-${Date.now()}-${prev.length + 1}`,
+        condition: presetCondition,
+        customConditionLabel: meta.shortLabel,
+        purchasePriceUSD: estVal,
+        purchaseDate: new Date().toISOString().split('T')[0],
+        storageMeta: metaStorage,
+        storageContainer: container,
+        storageSlot: `Slot #${prev.length + 1}`,
+        notes: '',
+      },
+    ]);
+  };
+
+  const handleRemoveCopyDraft = (id: string) => {
+    if (copiesDrafts.length <= 1) return;
+    setCopiesDrafts((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const handleUpdateCopyDraft = (id: string, updates: Partial<NewCopyDraft>) => {
+    setCopiesDrafts((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    );
   };
 
   // Close dropdown on click outside
@@ -246,6 +322,33 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
         ? '/assets/images/cobalt_drake_bey_1786709634306.jpg'
         : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
 
+    let builtCopies: AssetCopy[] | undefined = undefined;
+    let finalQty = qty;
+
+    if (useMultiCopies && copiesDrafts.length > 0) {
+      finalQty = copiesDrafts.length;
+      builtCopies = copiesDrafts.map((draft, idx) => {
+        const pPrice = parseFloat(draft.purchasePriceUSD) || buyPrice;
+        const copyMeta = getConditionMeta(draft.condition);
+        const copyVal = curPrice * copyMeta.multiplier;
+        return {
+          id: `copy-${Date.now()}-${idx + 1}`,
+          condition: draft.condition,
+          customConditionLabel: draft.customConditionLabel.trim() || copyMeta.shortLabel,
+          purchasePriceUSD: pPrice,
+          purchaseDate: draft.purchaseDate || purchaseDate,
+          currentValueUSD: Number(copyVal.toFixed(2)),
+          storageLocation: {
+            metaStorage: draft.storageMeta.trim() || metaStorage,
+            container: draft.storageContainer.trim() || container,
+            slot: draft.storageSlot.trim() || undefined,
+            notes: draft.notes.trim() || undefined,
+          },
+          notes: draft.notes.trim() || undefined,
+        };
+      });
+    }
+
     await addItem({
       sandboxId,
       name: name.trim(),
@@ -254,8 +357,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
       currentPriceUSD: curPrice,
       purchasePriceUSD: buyPrice,
       purchaseDate,
-      quantity: qty,
-      condition,
+      quantity: finalQty,
+      condition: useMultiCopies && copiesDrafts.length > 0 ? copiesDrafts[0].condition : condition,
+      copies: builtCopies,
       tags: parsedTags.length > 0 ? parsedTags : [category.toUpperCase()],
       notes,
       priceHistory: [],
@@ -547,38 +651,234 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
-                />
-              </div>
+              {!useMultiCopies ? (
+                <>
+                  <div>
+                    <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                    />
+                  </div>
 
-              <div>
-                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                  Condition
-                </label>
-                <select
-                  value={condition}
-                  onChange={(e: any) => setCondition(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
-                >
-                  <option value="GRADED_GEM_MINT">Graded (Gem Mint 10)</option>
-                  <option value="GRADED_MINT">Graded (Mint 9)</option>
-                  <option value="SEALED">Factory Sealed (NIB)</option>
-                  <option value="RAW_NM">Raw Near Mint</option>
-                  <option value="RAW_LP">Raw Light Play</option>
-                  <option value="RAW_MP">Raw Moderately Played</option>
-                  <option value="RAW_HP">Raw Heavily Played / Damaged</option>
-                </select>
-              </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                      Primary Condition
+                    </label>
+                    <select
+                      value={condition}
+                      onChange={(e: any) => setCondition(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                    >
+                      <option value="PSA_10">Gem Mint 10 (PSA 10)</option>
+                      <option value="BGS_10">Pristine 10 (BGS 10)</option>
+                      <option value="PSA_9">Mint 9 (PSA 9)</option>
+                      <option value="BGS_9.5">Gem Mint 9.5 (BGS 9.5)</option>
+                      <option value="NIB">Factory Sealed / New In Box (NIB)</option>
+                      <option value="MINT_IN_BOX">Mint In Box (MIB)</option>
+                      <option value="RAW_NM">Raw Near Mint (NM)</option>
+                      <option value="RAW_LP">Well Condition / Light Play (LP)</option>
+                      <option value="RAW_MP">Moderately Played (MP)</option>
+                      <option value="RAW_HP">Poor Condition / Heavily Played (HP)</option>
+                      <option value="USED">Used / Battle-Tested</option>
+                    </select>
+                  </div>
+                </>
+              ) : (
+                <div className="col-span-2 flex items-center justify-between p-2 rounded-xl bg-[#007AFF]/10 border border-[#007AFF]/20">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-[#007AFF]" />
+                    <span className="text-xs font-bold text-[#007AFF]">
+                      {copiesDrafts.length} Copies in Custom Conditions
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUseMultiCopies(false)}
+                    className="text-[11px] text-[#8E8E93] hover:text-[#1C1C1E] underline cursor-pointer"
+                  >
+                    Switch to single
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Multi-Condition Copies Manager Box */}
+            {!useMultiCopies ? (
+              <div className="p-3 rounded-2xl bg-[#F2F2F7] border border-black/[0.06] flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-white text-[#007AFF] shadow-xs">
+                    <Copy className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-[#1C1C1E]">
+                      Own multiple copies in different conditions?
+                    </div>
+                    <div className="text-[10px] text-[#8E8E93]">
+                      e.g., 1x Near Mint, 1x Well Condition (LP), 1x Poor Condition (HP)
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseMultiCopies(true);
+                    if (copiesDrafts.length === 0) {
+                      handleAddCopyDraft('RAW_NM');
+                      handleAddCopyDraft('RAW_LP');
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-[#007AFF] text-white text-xs font-medium hover:bg-[#007AFF]/90 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Configure Copies</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-[#F2F2F7] border border-[#007AFF]/25 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-[#007AFF] text-white">
+                      <Layers className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-[#1C1C1E]">
+                        Individual Copies & Condition Breakdown
+                      </span>
+                      <span className="text-[10px] text-[#8E8E93] block">
+                        Each copy has its own verified condition, market valuation multiplier, and storage slot.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddCopyDraft('RAW_HP')}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-black/[0.08] hover:bg-black/[0.03] text-xs font-semibold text-[#007AFF] flex items-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Add Copy</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                  {copiesDrafts.map((draft, idx) => {
+                    const meta = getConditionMeta(draft.condition);
+                    const baseP = parseFloat(currentPriceUSD) || 20;
+                    const computedVal = (baseP * meta.multiplier).toFixed(2);
+
+                    return (
+                      <div
+                        key={draft.id}
+                        className="p-3 rounded-xl bg-white border border-black/[0.08] shadow-xs space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-black/[0.05] text-[#1C1C1E]">
+                              Copy #{idx + 1}
+                            </span>
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${meta.badgeBg} ${meta.badgeBorder}`}>
+                              {meta.shortLabel} (x{meta.multiplier})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-emerald-600 font-bold">
+                              Est. Value: ${computedVal}
+                            </span>
+                            {copiesDrafts.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCopyDraft(draft.id)}
+                                className="p-1 rounded text-[#8E8E93] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] text-[#8E8E93] block mb-0.5 font-semibold">Condition</label>
+                            <select
+                              value={draft.condition}
+                              onChange={(e: any) => {
+                                const newCond = e.target.value;
+                                const newMeta = getConditionMeta(newCond);
+                                handleUpdateCopyDraft(draft.id, {
+                                  condition: newCond,
+                                  customConditionLabel: newMeta.shortLabel,
+                                });
+                              }}
+                              className="w-full px-2 py-1.5 bg-[#F2F2F7] border border-black/[0.08] rounded-lg text-xs"
+                            >
+                              <option value="PSA_10">Gem Mint 10 (PSA 10)</option>
+                              <option value="BGS_10">Pristine 10 (BGS 10)</option>
+                              <option value="PSA_9">Mint 9 (PSA 9)</option>
+                              <option value="BGS_9.5">Gem Mint 9.5 (BGS 9.5)</option>
+                              <option value="NIB">Factory Sealed / NIB</option>
+                              <option value="RAW_NM">Raw Near Mint (NM)</option>
+                              <option value="RAW_LP">Well Condition / Light Play (LP)</option>
+                              <option value="RAW_MP">Moderately Played (MP)</option>
+                              <option value="RAW_HP">Poor Condition / Heavy Play (HP)</option>
+                              <option value="USED">Used / Battle-Tested</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-[#8E8E93] block mb-0.5 font-semibold">Condition Description / Label</label>
+                            <input
+                              type="text"
+                              value={draft.customConditionLabel}
+                              placeholder="e.g. Well Condition, Minor whitening"
+                              onChange={(e) => handleUpdateCopyDraft(draft.id, { customConditionLabel: e.target.value })}
+                              className="w-full px-2 py-1.5 bg-[#F2F2F7] border border-black/[0.08] rounded-lg text-xs"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-[#8E8E93] block mb-0.5 font-semibold">Paid Price ($USD)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={draft.purchasePriceUSD}
+                              onChange={(e) => handleUpdateCopyDraft(draft.id, { purchasePriceUSD: e.target.value })}
+                              className="w-full px-2 py-1.5 bg-[#F2F2F7] border border-black/[0.08] rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-black/[0.04]">
+                          <div>
+                            <input
+                              type="text"
+                              placeholder="Storage Slot (e.g. Binder Page 2, Slot 4)"
+                              value={draft.storageSlot}
+                              onChange={(e) => handleUpdateCopyDraft(draft.id, { storageSlot: e.target.value })}
+                              className="w-full px-2 py-1 bg-[#F2F2F7] border border-black/[0.06] rounded-md text-[11px]"
+                            />
+                          </div>
+                          <div>
+                            <input
+                              type="text"
+                              placeholder="Copy notes (e.g. slight crease on back corner)"
+                              value={draft.notes}
+                              onChange={(e) => handleUpdateCopyDraft(draft.id, { notes: e.target.value })}
+                              className="w-full px-2 py-1 bg-[#F2F2F7] border border-black/[0.06] rounded-md text-[11px]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Beyblade Specifications (Conditional) */}
             {category === 'beyblade' && (

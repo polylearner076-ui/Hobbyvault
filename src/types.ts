@@ -9,7 +9,43 @@ export interface CurrencyConfig {
   label: string;
 }
 
-export type ItemCondition = 'RAW_NM' | 'RAW_LP' | 'RAW_MP' | 'RAW_HP' | 'PSA_10' | 'PSA_9' | 'PSA_8' | 'BGS_10' | 'BGS_9.5' | 'CGC_10' | 'NIB' | 'MINT_IN_BOX' | 'USED';
+export type ItemCondition =
+  | 'RAW_NM' // Near Mint / Mint
+  | 'RAW_LP' // Lightly Played / Well Condition
+  | 'RAW_MP' // Moderately Played
+  | 'RAW_HP' // Heavily Played / Poor Condition / Damaged
+  | 'RAW_DMG' // Damaged
+  | 'PSA_10'
+  | 'PSA_10_GEM_MINT'
+  | 'PSA_9'
+  | 'PSA_9_MINT'
+  | 'PSA_8'
+  | 'BGS_10'
+  | 'BGS_10_PRISTINE'
+  | 'BGS_9.5'
+  | 'BGS_9_5'
+  | 'CGC_10'
+  | 'CGC_10_PRISTINE'
+  | 'NIB' // New In Box / Factory Sealed
+  | 'MINT_IN_BOX'
+  | 'USED' // Used / Battle-tested
+  | 'USED_COMPLETE';
+
+export interface AssetCopy {
+  id: string;
+  condition: ItemCondition;
+  customConditionLabel?: string; // e.g. "Flawless", "Well Condition", "Poor Condition", "Heavy Crease"
+  gradeCompany?: 'PSA' | 'BGS' | 'CGC' | 'None';
+  gradeValue?: string;
+  certNumber?: string;
+  purchasePriceUSD?: number;
+  purchaseDate?: string;
+  currentValueUSD?: number; // Condition adjusted value
+  storageLocation?: StorageLocation;
+  serialNumber?: string;
+  notes?: string;
+  isFavorite?: boolean;
+}
 
 export interface PriceHistoryPoint {
   date: string; // YYYY-MM-DD
@@ -89,6 +125,7 @@ export interface AssetItem {
   purchaseDate: string;
   quantity: number;
   condition: ItemCondition;
+  copies?: AssetCopy[];
   notes?: string;
   tags: string[];
   priceHistory: PriceHistoryPoint[];

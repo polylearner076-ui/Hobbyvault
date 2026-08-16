@@ -437,29 +437,29 @@ export const PhysicalStorageHub: React.FC = () => {
   };
 
   return (
-    <div id="physical-storage-microservice" className="flex-1 flex flex-col bg-[#F2F2F7]">
+    <div id="physical-storage-microservice" className="flex-1 flex flex-col bg-[#F2F2F7] overflow-x-hidden">
       {/* Microservice Header Banner */}
-      <div className="bg-white border-b border-black/[0.08] sticky top-16 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white border-b border-black/[0.08] sticky top-14 sm:top-16 z-30 shadow-xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             {/* Title & Stats */}
             <div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#007AFF] to-sky-400 p-[1px] shadow-sm flex items-center justify-center">
-                  <div className="w-full h-full bg-white rounded-[15px] flex items-center justify-center">
-                    <Box className="w-5 h-5 text-[#007AFF]" />
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-[#007AFF] to-sky-400 p-[1px] shadow-sm flex items-center justify-center shrink-0">
+                  <div className="w-full h-full bg-white rounded-[13px] sm:rounded-[15px] flex items-center justify-center">
+                    <Box className="w-4 h-4 sm:w-5 sm:h-5 text-[#007AFF]" />
                   </div>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1C1C1E]">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <h1 className="text-base sm:text-xl md:text-2xl font-bold tracking-tight text-[#1C1C1E]">
                       Physical Storage & Inventory Hub
                     </h1>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-[#007AFF] border border-blue-200">
-                      Real-World Vault Map
+                    <span className="hidden xs:inline text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-[#007AFF] border border-blue-200 whitespace-nowrap">
+                      Vault Map
                     </span>
                   </div>
-                  <p className="text-xs text-[#8E8E93] mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-[#8E8E93] mt-0.5 line-clamp-1 sm:line-clamp-none">
                     Pinpoint collectibles across real-world fireproof safes, slab cases, binders, and exact slots.
                   </p>
                 </div>
@@ -467,32 +467,33 @@ export const PhysicalStorageHub: React.FC = () => {
             </div>
 
             {/* Quick Actions */}
-            <div className="flex items-center flex-wrap gap-2">
+            <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
               <button
                 id="btn-print-manifest"
                 onClick={() => setShowPrintManifest(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors shadow-xs"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors shadow-xs"
               >
-                <Printer className="w-4 h-4 text-[#8E8E93]" />
-                <span>Print Manifest</span>
+                <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#8E8E93]" />
+                <span className="hidden xs:inline">Print Manifest</span>
+                <span className="xs:hidden">Manifest</span>
               </button>
 
               <button
                 id="btn-new-location"
                 onClick={() => setShowAddStorage(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white text-xs font-semibold transition-all shadow-xs active:scale-95"
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white text-xs font-semibold transition-all shadow-xs active:scale-95"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>New Location</span>
               </button>
 
               <button
                 id="btn-switch-to-portfolio"
                 onClick={() => setActiveView('portfolio')}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-black/[0.05] hover:bg-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-black/[0.05] hover:bg-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors"
                 title="Switch back to Portfolio Vault"
               >
-                <Layers className="w-4 h-4 text-[#8E8E93]" />
+                <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#8E8E93]" />
                 <span className="hidden sm:inline">Portfolio Vault</span>
                 <ChevronRight className="w-3.5 h-3.5 text-[#8E8E93]" />
               </button>
@@ -500,33 +501,33 @@ export const PhysicalStorageHub: React.FC = () => {
           </div>
 
           {/* Metric Overview Ribbon */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-black/[0.06]">
-            <div className="bg-[#F2F2F7]/80 rounded-xl p-2.5 border border-black/[0.04]">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-black/[0.06]">
+            <div className="bg-[#F2F2F7]/80 rounded-xl p-2 sm:p-2.5 border border-black/[0.04]">
               <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
                 Physical Stored Value
               </div>
-              <div className="text-base font-bold text-[#1C1C1E] mt-0.5">
+              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5">
                 {formatPrice(totalPhysicalValueUSD)}
               </div>
             </div>
 
-            <div className="bg-[#F2F2F7]/80 rounded-xl p-2.5 border border-black/[0.04]">
+            <div className="bg-[#F2F2F7]/80 rounded-xl p-2 sm:p-2.5 border border-black/[0.04]">
               <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
                 Allocated Cards
               </div>
-              <div className="text-base font-bold text-[#1C1C1E] mt-0.5 flex items-center gap-1.5">
+              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 flex items-center gap-1">
                 <span>{totalAllocatedItems} / {totalItemsCount}</span>
-                <span className="text-[11px] font-normal text-emerald-600">
+                <span className="text-[10px] sm:text-[11px] font-normal text-emerald-600">
                   ({totalItemsCount > 0 ? Math.round((totalAllocatedItems / totalItemsCount) * 100) : 0}%)
                 </span>
               </div>
             </div>
 
-            <div className="bg-[#F2F2F7]/80 rounded-xl p-2.5 border border-black/[0.04]">
+            <div className="bg-[#F2F2F7]/80 rounded-xl p-2 sm:p-2.5 border border-black/[0.04]">
               <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
                 Registered Units
               </div>
-              <div className="text-base font-bold text-[#1C1C1E] mt-0.5">
+              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 truncate">
                 {totalRegisteredMetaLocations} Places • {totalRegisteredContainers} Units
               </div>
             </div>
@@ -537,7 +538,7 @@ export const PhysicalStorageHub: React.FC = () => {
                 setSelectedMetaStorage(null);
                 setSelectedContainer(null);
               }}
-              className={`rounded-xl p-2.5 border transition-all cursor-pointer ${
+              className={`rounded-xl p-2 sm:p-2.5 border transition-all cursor-pointer ${
                 storageHierarchy.unallocated.length > 0
                   ? 'bg-amber-50/80 border-amber-200/80 hover:bg-amber-100/80'
                   : 'bg-[#F2F2F7]/80 border-black/[0.04]'
@@ -549,9 +550,9 @@ export const PhysicalStorageHub: React.FC = () => {
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
                 )}
               </div>
-              <div className="text-base font-bold text-[#1C1C1E] mt-0.5 flex items-center gap-1">
+              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 flex items-center gap-1">
                 <span>{storageHierarchy.unallocated.length} cards</span>
-                <span className="text-[10px] text-[#8E8E93] font-normal">➔ Click to assign</span>
+                <span className="text-[10px] text-[#8E8E93] font-normal hidden sm:inline">➔ Assign</span>
               </div>
             </div>
           </div>
@@ -567,11 +568,11 @@ export const PhysicalStorageHub: React.FC = () => {
       )}
 
       {/* Main Microservice Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 flex flex-col lg:flex-row gap-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full flex-1 flex flex-col lg:flex-row gap-4 sm:gap-6">
         {/* Left Sidebar: Physical Hierarchy Explorer */}
         <div className="w-full lg:w-80 shrink-0 flex flex-col gap-3">
           {/* Filter Pills */}
-          <div className="bg-white p-2 rounded-2xl border border-black/[0.06] shadow-xs flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <div className="bg-white p-1.5 sm:p-2 rounded-2xl border border-black/[0.06] shadow-xs flex items-center gap-1 overflow-x-auto no-scrollbar">
             <button
               onClick={() => setFilterMode('all')}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-colors whitespace-nowrap ${
@@ -640,7 +641,7 @@ export const PhysicalStorageHub: React.FC = () => {
           </div>
 
           {/* Hierarchy Tree */}
-          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-xs overflow-hidden flex flex-col max-h-[calc(100vh-280px)] overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-xs overflow-hidden flex flex-col max-h-[340px] lg:max-h-[calc(100vh-280px)] overflow-y-auto">
             <div className="p-3 border-b border-black/[0.06] bg-[#F2F2F7]/50 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#8E8E93]">
                 Physical Locations & Units

@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { AssetItem, Sandbox, CurrencyCode, TimeRange, PriceHistoryPoint, StorageUnit, StorageLocation } from '../types';
 import { INITIAL_SANDBOXES, CURRENCIES, generateHistory, upsertPriceHistoryPoint } from '../data/initialData';
+import {
+  calculateItemTotalValuation,
+  calculateItemTotalCost,
+  ensureCopiesForAsset,
+} from '../utils/conditionUtils';
 import { generateStarterPortfolioForUser } from '../services/portfolioGenerator';
 import luffyMangaImg from '../assets/images/luffy_op05_manga_1786710252169.jpg';
 import { syncBatchPrices } from '../services/api';
@@ -607,10 +612,10 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Sort
     result.sort((a, b) => {
-      const totalValA = a.currentPriceUSD * a.quantity;
-      const totalValB = b.currentPriceUSD * b.quantity;
-      const totalCostA = a.purchasePriceUSD * a.quantity;
-      const totalCostB = b.purchasePriceUSD * b.quantity;
+      const totalValA = calculateItemTotalValuation(a);
+      const totalValB = calculateItemTotalValuation(b);
+      const totalCostA = calculateItemTotalCost(a);
+      const totalCostB = calculateItemTotalCost(b);
       const gainA = totalCostA > 0 ? (totalValA - totalCostA) / totalCostA : 0;
       const gainB = totalCostB > 0 ? (totalValB - totalCostB) / totalCostB : 0;
 
@@ -656,10 +661,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let val30d = 0;
 
     targetItems.forEach((item) => {
-      const itemVal = item.currentPriceUSD * item.quantity;
-      const itemCost = item.purchasePriceUSD * item.quantity;
-      const prev24 = (item.previousPriceUSD_24h ?? item.currentPriceUSD) * item.quantity;
-      const prev30 = (item.previousPriceUSD_30d ?? item.currentPriceUSD * 0.95) * item.quantity;
+      const itemVal = calculateItemTotalValuation(item);
+      const itemCost = calculateItemTotalCost(item);
+      const qtyRatio = item.copies && item.copies.length > 0 ? item.copies.length : (item.quantity || 1);
+      const prev24 = (item.previousPriceUSD_24h ?? item.currentPriceUSD) * qtyRatio;
+      const prev30 = (item.previousPriceUSD_30d ?? item.currentPriceUSD * 0.95) * qtyRatio;
 
       val += itemVal;
       cost += itemCost;
