@@ -16,6 +16,7 @@ import {
   LogIn,
   Radio,
   Box,
+  Sparkles,
 } from 'lucide-react';
 import { CurrencyCode } from '../../types';
 import { CURRENCIES } from '../../data/initialData';
@@ -25,6 +26,7 @@ interface AppleNavbarProps {
   onOpenAddModal: () => void;
   onOpenScanModal: () => void;
   onOpenAnalyticsModal: () => void;
+  onOpenAgentModal?: () => void;
   onOpenStorageModal: () => void;
   onOpenNewSandboxModal: () => void;
   onOpenDiagnosticsModal: () => void;
@@ -35,6 +37,7 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
   onOpenAddModal,
   onOpenScanModal,
   onOpenAnalyticsModal,
+  onOpenAgentModal,
   onOpenStorageModal,
   onOpenDiagnosticsModal,
   onOpenAuthModal,
@@ -319,6 +322,20 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Omni-Agent AI Natural Language Reasoning Engine */}
+              {onOpenAgentModal && (
+                <button
+                  type="button"
+                  id="open-agent-modal-btn"
+                  onClick={onOpenAgentModal}
+                  className="flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
+                  title="Omni-Vault & Physical Storage Meta-Agent (Gemini 3.7 Flash)"
+                >
+                  <Sparkles className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-purple-600 shrink-0" />
+                  <span className="hidden sm:inline">Meta-Agent</span>
+                </button>
+              )}
 
               {/* AI Scanner Trigger */}
               <button

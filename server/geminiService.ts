@@ -54,6 +54,20 @@ export async function generateContentWithFallback(
           continue;
         }
 
+        // If authentication or permission error, abort immediately across all models
+        const isAuthError =
+          statusCode === 401 ||
+          statusCode === 403 ||
+          errorMsg.includes('UNAUTHENTICATED') ||
+          errorMsg.includes('invalid authentication') ||
+          errorMsg.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED') ||
+          errorMsg.includes('API_KEY_INVALID') ||
+          errorMsg.includes('PERMISSION_DENIED');
+
+        if (isAuthError) {
+          throw err;
+        }
+
         // If not transient or out of attempts for this model, break and try next fallback model
         break;
       }

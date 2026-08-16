@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { HobbyType, ItemCondition, AssetCopy } from '../../types';
 import { CONDITION_METAS, getConditionMeta, calculateCopyValue } from '../../utils/conditionUtils';
+import { CATEGORY_GROUPS, getAllCategoryMetas } from '../../utils/categoryUtils';
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -40,14 +41,17 @@ interface NewCopyDraft {
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
-  const { sandboxes, activeSandboxId, addItem, formatPrice, storageUnits } = useVault();
+  const { sandboxes, activeSandboxId, addItem, formatPrice, storageUnits, categoryMetas } = useVault();
+
+  // Determine initial sandbox and its category
+  const activeSb = sandboxes.find((s) => s.id === activeSandboxId) || sandboxes[0];
+  const initialSandboxId = activeSb ? activeSb.id : (sandboxes[0]?.id || 'sandbox-pokemon');
+  const initialCategory = (activeSb ? activeSb.type : (sandboxes[0]?.type || 'pokemon')) as HobbyType;
 
   // Custom Item Form State
   const [name, setName] = useState('');
-  const [sandboxId, setSandboxId] = useState<string>(
-    activeSandboxId !== 'all' ? activeSandboxId : sandboxes[0]?.id || 'sandbox-pokemon'
-  );
-  const [category, setCategory] = useState<HobbyType>('pokemon');
+  const [sandboxId, setSandboxId] = useState<string>(initialSandboxId);
+  const [category, setCategory] = useState<HobbyType>(initialCategory);
   const [imageUrl, setImageUrl] = useState('');
   const [currentPriceUSD, setCurrentPriceUSD] = useState('25.00');
   const [purchasePriceUSD, setPurchasePriceUSD] = useState('20.00');
@@ -117,12 +121,72 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   const dropdownContainerRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  const allCategoryMetas = categoryMetas && categoryMetas.length > 0 ? categoryMetas : getAllCategoryMetas();
+
+  const getSearchPlaceholder = (cat: HobbyType) => {
+    switch (cat) {
+      case 'watches':
+        return 'e.g. Rolex Submariner 126610LN, Omega Speedmaster, Daytona...';
+      case 'sneakers':
+        return 'e.g. Nike SB Chunky Dunky, Travis Scott Jordan 1 Low, Chicago OG...';
+      case 'lego':
+        return 'e.g. LEGO Star Wars Millennium Falcon 75192, Rivendell 10316...';
+      case 'gunpla':
+        return 'e.g. MGEX Strike Freedom, PG Unleashed RX-78-2, RG Hi-Nu...';
+      case 'diecast':
+        return 'e.g. Hot Wheels RLC Datsun 240Z, Super Treasure Hunt, Skyline...';
+      case 'action_figures':
+        return 'e.g. S.H.Figuarts Super Saiyan 4 Goku, MAFEX Batman, Hot Toys...';
+      case 'warhammer':
+        return 'e.g. Warhammer 40k Leviathan Box, Roboute Guilliman, Combat Patrol...';
+      case 'yugioh':
+        return 'e.g. Blue-Eyes White Dragon LOB-001, Dark Magician, Slifer QCR...';
+      case 'lorcana':
+        return 'e.g. Elsa Spirit of Winter Enchanted, Tinker Bell Giant Fairy...';
+      case 'sports_cards':
+        return 'e.g. Victor Wembanyama Prizm Silver RC, Michael Jordan Fleer RC...';
+      case 'comics_manga':
+        return 'e.g. The Amazing Spider-Man #300, Shonen Jump 1997 #34...';
+      case 'coins_bullion':
+        return 'e.g. 1 oz American Silver Eagle MS70, Morgan Silver Dollar 1881-S...';
+      case 'fine_art':
+        return 'e.g. Takashi Murakami Flowers Signed Lithograph, KAWS Chum...';
+      case 'vinyl_music':
+        return 'e.g. Pink Floyd Dark Side 1st Press, The Beatles Abbey Road...';
+      case 'gaming':
+      case 'consoles':
+        return 'e.g. Pokémon Emerald GBA CIB, Pokémon HeartGold DS, Chrono Trigger...';
+      case 'beyblade':
+        return 'e.g. Cobalt Drake 4-60F, Wizard Rod 5-70DB, Phoenix Wing, Dran Buster...';
+      case 'mtg':
+        return 'e.g. Black Lotus, Ragavan Nimble Pilferer, The One Ring, Mox Diamond...';
+      case 'onepiece':
+        return 'e.g. Monkey.D.Luffy OP05 Manga, Shanks OP01, Zoro OP06...';
+      case 'pokemon':
+      default:
+        return 'e.g. Charizard ex 151, Umbreon VMAX Moonbreon, Pikachu SIR...';
+    }
+  };
+
   // Sync category with selected sandbox
   const handleSandboxChange = (sbId: string) => {
     setSandboxId(sbId);
     const match = sandboxes.find((s) => s.id === sbId);
     if (match) {
-      setCategory(match.type);
+      setCategory(match.type as HobbyType);
+      setHasDismissedSuggestions(false);
+      setSearchSuggestions([]);
+    }
+  };
+
+  // Sync sandbox with selected category
+  const handleCategoryChange = (newCat: HobbyType) => {
+    setCategory(newCat);
+    setHasDismissedSuggestions(false);
+    setSearchSuggestions([]);
+    const match = sandboxes.find((s) => s.type === newCat);
+    if (match) {
+      setSandboxId(match.id);
     }
   };
 
@@ -349,8 +413,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
       });
     }
 
+    const targetSandboxId =
+      sandboxId ||
+      sandboxes.find((s) => s.type === category)?.id ||
+      (activeSandboxId !== 'all' ? activeSandboxId : null) ||
+      sandboxes[0]?.id ||
+      'sandbox-pokemon';
+
     await addItem({
-      sandboxId,
+      sandboxId: targetSandboxId,
       name: name.trim(),
       category,
       imageUrl: imageUrl.trim() || defaultImg,
@@ -439,46 +510,46 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
               </div>
             )}
 
-            {/* Target Sandbox & Category */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                  Target Hobby Sandbox / Vault *
-                </label>
-                <select
-                  value={sandboxId}
-                  onChange={(e) => handleSandboxChange(e.target.value)}
-                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium focus:outline-none focus:border-[#007AFF]"
-                >
-                  {sandboxes.map((sb) => (
-                    <option key={sb.id} value={sb.id}>
-                      {sb.name} ({sb.type})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Hobby Category Selector (Replaces previous target sandbox section) */}
+            <div>
+              <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                Hobby Category *
+              </label>
+              <select
+                id="add-item-category-select"
+                value={category}
+                onChange={(e) => handleCategoryChange(e.target.value as HobbyType)}
+                className="w-full px-3.5 py-2.5 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium text-xs focus:outline-none focus:border-[#007AFF] transition-colors cursor-pointer"
+              >
+                {CATEGORY_GROUPS.map((group) => {
+                  const groupMetas = allCategoryMetas.filter((m) => {
+                    if (group.id === 'tcg') return m.group === 'Trading Card Games (TCG)';
+                    if (group.id === 'toys_models') return m.group === 'Action Toys, Models & Spinning Tops';
+                    if (group.id === 'gaming') return m.group === 'Video Games & Hardware';
+                    if (group.id === 'comics_entertainment') return m.group === 'Comics, Manga & Pop Culture';
+                    if (group.id === 'luxury_fashion') return m.group === 'Luxury, Timepieces & Streetwear';
+                    if (group.id === 'art_memorabilia') return m.group === 'Art, Coins & Sports Memorabilia';
+                    if (group.id === 'custom_user') return m.group === 'Custom Hobby Categories' || m.isCustom;
+                    return m.group === group.name;
+                  });
 
-              <div>
-                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                  Hobby Category
-                </label>
-                <select
-                  value={category}
-                  onChange={(e: any) => {
-                    setCategory(e.target.value);
-                    setHasDismissedSuggestions(false);
-                  }}
-                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium focus:outline-none focus:border-[#007AFF]"
-                >
-                  <option value="pokemon">Pokémon TCG</option>
-                  <option value="beyblade">Beyblade</option>
-                  <option value="onepiece">One Piece TCG</option>
-                  <option value="mtg">Magic: The Gathering</option>
-                  <option value="yugioh">Yu-Gi-Oh!</option>
-                  <option value="gaming">Retro / Modern Gaming</option>
-                  <option value="tcg_general">Other Collectible</option>
-                </select>
-              </div>
+                  if (groupMetas.length === 0) return null;
+
+                  return (
+                    <optgroup key={group.id} label={group.name}>
+                      {groupMetas.map((meta) => (
+                        <option key={meta.id} value={meta.id}>
+                          {meta.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+                {/* Fallback for any unknown category currently set */}
+                {!allCategoryMetas.some((m) => m.id === category) && (
+                  <option value={category}>{category}</option>
+                )}
+              </select>
             </div>
 
             {/* Item Name & Live Debounce Online Search Container */}
@@ -505,7 +576,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                     ref={nameInputRef}
                     type="text"
                     required
-                    placeholder="e.g. Charizard ex 151, Cobalt Drake, Black Lotus, Wizard Rod..."
+                    placeholder={getSearchPlaceholder(category)}
                     value={name}
                     onChange={(e) => {
                       setName(e.target.value);

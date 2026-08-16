@@ -6,7 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import { getAdminFirestore } from './server/firebaseAdmin.js';
 import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, searchOnlineCollectibles, getMemoryCacheStats } from './server/dataPipeline.js';
 import { runApiTestSuite, auditAllIndividualAssets } from './server/tests/apiPipeline.test.js';
-import { auditSourceGroupsHealth, generateAssetMarketIntelligence, UPSTREAM_SOURCE_GROUPS } from './server/agentSystem.js';
+import { auditSourceGroupsHealth, generateAssetMarketIntelligence, processMetaAgentQuery, UPSTREAM_SOURCE_GROUPS } from './server/agentSystem.js';
 import { generateContentWithFallback } from './server/geminiService.js';
 import { requireAuth, AuthRequest } from './src/middleware/auth.ts';
 import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMetrics } from './src/db/users.ts';
@@ -24,9 +24,13 @@ app.use(express.json({ limit: '10mb' }));
 // Lazy initialize Gemini client if key is available
 let aiClient: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI | null {
-  if (!aiClient && process.env.GEMINI_API_KEY) {
+  const key = process.env.GEMINI_API_KEY?.trim();
+  if (!key || key === 'undefined' || key === 'null') {
+    return null;
+  }
+  if (!aiClient) {
     aiClient = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: key,
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
@@ -443,7 +447,7 @@ app.post('/api/search/suggestions', async (req, res) => {
       return res.json({ success: true, suggestions: [] });
     }
 
-    const suggestions = await searchOnlineCollectibles(query.trim(), category);
+    const suggestions = await searchOnlineCollectibles(query.trim(), category, getAI());
     res.json({
       success: true,
       query: query.trim(),
@@ -521,6 +525,67 @@ app.post('/api/agent/query-resolution', async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Omni-Vault & Physical Storage Meta-Agent Query Engine (Powered by Gemini 3.7 Flash)
+// Filters across categories, computes aggregated valuations, and cross-references physical storage locations
+app.post('/api/agent/meta-query', async (req, res) => {
+  try {
+    const { prompt, vaultItems = [], storageUnits = [], currency = 'USD', model } = req.body;
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Prompt string is required' });
+    }
+
+    const ai = getAI();
+    const result = await processMetaAgentQuery({
+      prompt: prompt.trim(),
+      vaultItems,
+      storageUnits,
+      currency,
+      aiClient: ai,
+      model,
+    });
+
+    res.json({
+      success: true,
+      query: prompt.trim(),
+      timestamp: new Date().toISOString(),
+      data: result,
+    });
+  } catch (err: any) {
+    console.error('Meta agent query route error:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to process meta-agent query' });
+  }
+});
+
+// Alias for meta-query
+app.post('/api/agent/query', async (req, res) => {
+  try {
+    const { prompt, vaultItems = [], storageUnits = [], currency = 'USD', model } = req.body;
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Prompt string is required' });
+    }
+
+    const ai = getAI();
+    const result = await processMetaAgentQuery({
+      prompt: prompt.trim(),
+      vaultItems,
+      storageUnits,
+      currency,
+      aiClient: ai,
+      model,
+    });
+
+    res.json({
+      success: true,
+      query: prompt.trim(),
+      timestamp: new Date().toISOString(),
+      data: result,
+    });
+  } catch (err: any) {
+    console.error('Agent query route error:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to process agent query' });
   }
 });
 

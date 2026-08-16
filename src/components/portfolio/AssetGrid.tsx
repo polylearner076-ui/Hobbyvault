@@ -33,6 +33,8 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
     setSortBy,
     formatPrice,
     activeSandbox,
+    agentActiveFilter,
+    clearAgentActiveFilter,
   } = useVault();
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -47,6 +49,39 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pb-20">
+      {/* Active Meta-Agent Filter Banner */}
+      {agentActiveFilter && (
+        <div className="mb-3 p-3.5 rounded-2xl bg-purple-50 border border-purple-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <Sparkles className="w-3.5 h-3.5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-purple-900">
+                  Active Meta-Agent Filter
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-200/60 text-purple-800 font-semibold">
+                  {filteredItems.length} Matched Assets ({formatPrice(agentActiveFilter.totalValueUSD)})
+                </span>
+              </div>
+              <p className="text-[11px] text-purple-700 font-medium truncate max-w-lg">
+                &ldquo;{agentActiveFilter.title || agentActiveFilter.query}&rdquo;
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={clearAgentActiveFilter}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-purple-100 text-purple-700 text-xs font-semibold border border-purple-200 shadow-2xs transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Reset / Clear Filter</span>
+          </button>
+        </div>
+      )}
+
       {/* Search & Filter Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3 mb-4 sm:mb-6 bg-white p-2.5 sm:p-3 rounded-2xl border border-black/[0.06] shadow-sm">
         {/* Search Bar */}

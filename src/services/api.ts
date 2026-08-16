@@ -262,20 +262,29 @@ export async function getAssetIntelligence(asset: {
 }
 
 /**
- * Agent Natural Language Query & Source Auto-Routing
+ * Omni-Vault & Physical Storage Meta-Agent Query (Gemini 3.7 Flash)
+ * Can filter, aggregate, and cross-reference across Vault & Storage
  */
-export async function resolveAgentQuery(query: string) {
+export async function queryMetaAgent(params: {
+  prompt: string;
+  vaultItems: any[];
+  storageUnits?: any[];
+  currency?: string;
+  model?: string;
+}): Promise<any> {
   try {
-    const res = await fetch('/api/agent/query-resolution', {
+    const res = await fetch('/api/agent/meta-query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify(params),
     });
-    if (!res.ok) throw new Error('Agent query resolution failed');
-    return await res.json();
+    if (!res.ok) throw new Error(`Meta agent query failed with status ${res.status}`);
+    const json = await res.json();
+    return json.data;
   } catch (err) {
-    console.warn('resolveAgentQuery error:', err);
-    return null;
+    console.warn('queryMetaAgent network catch:', err);
+    throw err;
   }
 }
+
 

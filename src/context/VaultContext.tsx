@@ -1,14 +1,15 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { AssetItem, Sandbox, CurrencyCode, TimeRange, PriceHistoryPoint, StorageUnit, StorageLocation } from '../types';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { AssetItem, Sandbox, CurrencyCode, TimeRange, PriceHistoryPoint, StorageUnit, StorageLocation, AgentFilter, CategoryTypeMeta, AgentBackgroundTask, AgentQueryResult } from '../types';
 import { INITIAL_SANDBOXES, CURRENCIES, generateHistory, upsertPriceHistoryPoint } from '../data/initialData';
 import {
   calculateItemTotalValuation,
   calculateItemTotalCost,
   ensureCopiesForAsset,
 } from '../utils/conditionUtils';
+import { getAllCategoryMetas, saveCustomCategoryMeta } from '../utils/categoryUtils';
 import { generateStarterPortfolioForUser } from '../services/portfolioGenerator';
 import luffyMangaImg from '../assets/images/luffy_op05_manga_1786710252169.jpg';
-import { syncBatchPrices } from '../services/api';
+import { syncBatchPrices, queryMetaAgent } from '../services/api';
 import { useAuth } from './AuthContext';
 import {
   loadItemsFromDatabase,
@@ -92,6 +93,21 @@ interface VaultContextType {
   setActiveView: (view: 'portfolio' | 'storage') => void;
   storageFocusLocation: { meta?: string; container?: string } | null;
   setStorageFocusLocation: (loc: { meta?: string; container?: string } | null) => void;
+
+  // Agentic AI System & Meta-Filter
+  agentActiveFilter: AgentFilter | null;
+  setAgentActiveFilter: (filter: AgentFilter | null) => void;
+  clearAgentActiveFilter: () => void;
+
+  // Background AI Agent Tasks & Result Windows
+  agentBackgroundTasks: AgentBackgroundTask[];
+  startAgentBackgroundTask: (prompt: string, model?: string) => Promise<string>;
+  dismissBackgroundTask: (taskId: string) => void;
+  openAgentResultWindow: (query: string, result: AgentQueryResult) => string;
+
+  // Category Metas & Custom Category Types
+  categoryMetas: CategoryTypeMeta[];
+  addCustomCategoryMeta: (meta: CategoryTypeMeta) => CategoryTypeMeta[];
 
   // Storage Units & Locations Management
   storageUnits: StorageUnit[];
@@ -256,7 +272,20 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
   }, [activeView]);
 
+  // Storage Focus location
   const [storageFocusLocation, setStorageFocusLocation] = useState<{ meta?: string; container?: string } | null>(null);
+
+  // Agentic AI System Filter State (travels across vault portfolios and physical storage)
+  const [agentActiveFilter, setAgentActiveFilter] = useState<AgentFilter | null>(null);
+  const clearAgentActiveFilter = () => setAgentActiveFilter(null);
+
+  // Dynamic Category Types Metadata Registry
+  const [categoryMetas, setCategoryMetas] = useState<CategoryTypeMeta[]>(() => getAllCategoryMetas());
+  const addCustomCategoryMeta = (meta: CategoryTypeMeta) => {
+    const updated = saveCustomCategoryMeta(meta);
+    setCategoryMetas(getAllCategoryMetas());
+    return updated;
+  };
 
   // Starred Storage locations & containers
   const [starredStorageKeys, setStarredStorageKeys] = useState<string[]>(() => {
@@ -344,6 +373,106 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return Array.from(unitsMap.values());
   }, [customStorageUnits, items]);
+
+  // Background AI Agent Tasks & Result Windows
+  const [agentBackgroundTasks, setAgentBackgroundTasks] = useState<AgentBackgroundTask[]>([]);
+
+  const dismissBackgroundTask = useCallback((taskId: string) => {
+    setAgentBackgroundTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }, []);
+
+  const openAgentResultWindow = useCallback((query: string, result: AgentQueryResult): string => {
+    const sandboxId = `sandbox-agent-${Date.now()}`;
+    const cleanTitle = query.trim().length > 22 ? query.trim().slice(0, 20) + '…' : query.trim();
+    const newSandbox: Sandbox = {
+      id: sandboxId,
+      name: `✦ ${cleanTitle || 'Agent Insight'}`,
+      type: 'custom',
+      description: result.directAnswerSummary || 'AI Agent Result Workspace',
+      iconName: 'Sparkles',
+      themeColor: '#007AFF',
+      createdAt: new Date().toISOString().split('T')[0],
+      isAgentResult: true,
+      agentQuery: query,
+      agentResult: result,
+      userId: activeUserId || undefined,
+    };
+
+    setSandboxes((prev) => {
+      // If there is an existing empty 'watches' or custom sandbox, keep order clean
+      return [...prev.filter((s) => s.id !== sandboxId), newSandbox];
+    });
+
+    setActiveSandboxId(sandboxId);
+    setActiveView('portfolio');
+
+    if (result.matchedItemIds && result.matchedItemIds.length > 0) {
+      setAgentActiveFilter({
+        id: `agent-filter-${Date.now()}`,
+        query,
+        title: result.directAnswerSummary || query,
+        matchedItemIds: result.matchedItemIds,
+        matchedCount: result.matchedItemIds.length,
+        totalValueUSD: result.aggregatedMetrics?.totalValueUSD || 0,
+        active: true,
+      });
+    }
+
+    if (activeUserId) {
+      saveSandboxToDatabase(newSandbox, activeUserId).catch((err) =>
+        console.warn('Failed to save agent sandbox:', err)
+      );
+    }
+
+    return sandboxId;
+  }, [activeUserId]);
+
+  const startAgentBackgroundTask = useCallback(async (prompt: string, model?: string): Promise<string> => {
+    const taskId = `task-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const newTask: AgentBackgroundTask = {
+      id: taskId,
+      prompt,
+      model: model || 'gemini-2.5-flash',
+      status: 'running',
+      startTime: Date.now(),
+    };
+
+    setAgentBackgroundTasks((prev) => [newTask, ...prev]);
+
+    // Asynchronously dispatch RAG agent query in the background
+    (async () => {
+      try {
+        const result = await queryMetaAgent({
+          prompt,
+          vaultItems: items,
+          storageUnits,
+          currency,
+          model,
+        });
+
+        const createdSandboxId = openAgentResultWindow(prompt, result);
+
+        setAgentBackgroundTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId
+              ? { ...t, status: 'completed', result, createdSandboxId }
+              : t
+          )
+        );
+      } catch (err: any) {
+        console.error('Background Agent Task failed:', err);
+        setAgentBackgroundTasks((prev) =>
+          prev.map((t) =>
+            t.id === taskId
+              ? { ...t, status: 'error', error: err?.message || 'Agent analysis failed' }
+              : t
+          )
+        );
+      }
+    })();
+
+    return taskId;
+  }, [items, storageUnits, currency, openAgentResultWindow]);
 
   const addStorageUnit = (unitData: Omit<StorageUnit, 'id' | 'createdAt'>): StorageUnit => {
     const newUnit: StorageUnit = {
@@ -589,7 +718,12 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Filter by sandbox if not 'all'
     if (activeSandboxId !== 'all') {
-      result = result.filter((item) => item.sandboxId === activeSandboxId);
+      const currentSb = sandboxes.find((s) => s.id === activeSandboxId);
+      if (currentSb?.isAgentResult && currentSb.agentResult?.matchedItemIds && currentSb.agentResult.matchedItemIds.length > 0) {
+        result = result.filter((item) => currentSb.agentResult!.matchedItemIds.includes(item.id));
+      } else {
+        result = result.filter((item) => item.sandboxId === activeSandboxId);
+      }
     }
 
     // Filter by search query
@@ -603,6 +737,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           item.beybladeSpecs?.blade?.toLowerCase().includes(q) ||
           item.beybladeSpecs?.generation?.toLowerCase().includes(q)
       );
+    }
+
+    // Filter by agent active filter if set
+    if (agentActiveFilter && Array.isArray(agentActiveFilter.matchedItemIds) && agentActiveFilter.matchedItemIds.length > 0) {
+      result = result.filter((item) => agentActiveFilter.matchedItemIds.includes(item.id));
     }
 
     // Filter by condition
@@ -638,7 +777,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return result;
-  }, [items, activeSandboxId, searchQuery, selectedCondition, sortBy]);
+  }, [items, activeSandboxId, searchQuery, selectedCondition, sortBy, agentActiveFilter]);
 
   // Aggregate Metrics for current Sandbox or All
   const {
@@ -651,8 +790,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     change30dUSD,
     change30dPercent,
   } = useMemo(() => {
+    const currentSb = sandboxes.find((s) => s.id === activeSandboxId);
     const targetItems = activeSandboxId === 'all'
       ? items
+      : currentSb?.isAgentResult && currentSb.agentResult?.matchedItemIds && currentSb.agentResult.matchedItemIds.length > 0
+      ? items.filter((i) => currentSb.agentResult!.matchedItemIds.includes(i.id))
       : items.filter((i) => i.sandboxId === activeSandboxId);
 
     let val = 0;
@@ -710,8 +852,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Aggregate Historical Curve across all items in active scope
   const portfolioHistory = useMemo(() => {
+    const currentSb = sandboxes.find((s) => s.id === activeSandboxId);
     const targetItems = activeSandboxId === 'all'
       ? items
+      : currentSb?.isAgentResult && currentSb.agentResult?.matchedItemIds && currentSb.agentResult.matchedItemIds.length > 0
+      ? items.filter((i) => currentSb.agentResult!.matchedItemIds.includes(i.id))
       : items.filter((i) => i.sandboxId === activeSandboxId);
 
     if (targetItems.length === 0) return [];
@@ -1106,6 +1251,15 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveView,
         storageFocusLocation,
         setStorageFocusLocation,
+        agentActiveFilter,
+        setAgentActiveFilter,
+        clearAgentActiveFilter,
+        agentBackgroundTasks,
+        startAgentBackgroundTask,
+        dismissBackgroundTask,
+        openAgentResultWindow,
+        categoryMetas,
+        addCustomCategoryMeta,
         storageUnits,
         starredStorageKeys,
         toggleStarLocation,

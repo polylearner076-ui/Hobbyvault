@@ -112,16 +112,19 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
                 </div>
               </button>
 
-              {/* Custom sandbox delete button (if user created custom) */}
-              {sb.id.startsWith('sandbox-custom') && (
+              {/* Close/Delete tab button for custom sandboxes or agent result windows */}
+              {(sb.id.startsWith('sandbox-custom') || sb.id.startsWith('sandbox-agent') || sb.isAgentResult || sb.id === 'sandbox-watches' || sb.id === 'watches') && (
                 <button
                   id={`btn-delete-sandbox-${sb.id}`}
                   onClick={async (e) => {
                     e.stopPropagation();
+                    if (activeSandboxId === sb.id) {
+                      setActiveSandboxId('all');
+                    }
                     await deleteSandbox(sb.id);
                   }}
-                  title="Delete this custom sandbox"
-                  className="absolute -top-1 -right-1 hidden group-hover/tab:flex w-4 h-4 rounded-full bg-[#FF3B30] text-white items-center justify-center text-[10px] hover:bg-red-600 shadow cursor-pointer"
+                  title={sb.isAgentResult ? 'Close this Agent Window' : 'Delete this vault'}
+                  className="absolute -top-1 -right-1 hidden group-hover/tab:flex w-4 h-4 rounded-full bg-[#FF3B30] text-white items-center justify-center text-[10px] hover:bg-red-600 shadow cursor-pointer transition-transform hover:scale-110"
                 >
                   ×
                 </button>

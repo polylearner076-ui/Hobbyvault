@@ -12,9 +12,11 @@ import { AnalyticsModal } from './components/modals/AnalyticsModal';
 import { CustomSandboxModal } from './components/modals/CustomSandboxModal';
 import { ApiDiagnosticsModal } from './components/modals/ApiDiagnosticsModal';
 import { StorageInventoryModal } from './components/modals/StorageInventoryModal';
+import { OmniAgentModal } from './components/modals/OmniAgentModal';
 import { PhysicalStorageHub } from './components/storage/PhysicalStorageHub';
 import { AuthModal } from './components/auth/AuthModal';
 import { GuestWelcomeView } from './components/auth/GuestWelcomeView';
+import { BackgroundTasksIndicator } from './components/common/BackgroundTasksIndicator';
 import { AssetItem } from './types';
 
 function MainVaultApp() {
@@ -24,6 +26,7 @@ function MainVaultApp() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [showNewSandboxModal, setShowNewSandboxModal] = useState(false);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
@@ -42,6 +45,7 @@ function MainVaultApp() {
         onOpenAddModal={() => setShowAddModal(true)}
         onOpenScanModal={() => setShowScanModal(true)}
         onOpenAnalyticsModal={() => setShowAnalyticsModal(true)}
+        onOpenAgentModal={() => setShowAgentModal(true)}
         onOpenStorageModal={() => setActiveView('storage')}
         onOpenNewSandboxModal={() => setShowNewSandboxModal(true)}
         onOpenDiagnosticsModal={() => setShowDiagnosticsModal(true)}
@@ -67,7 +71,7 @@ function MainVaultApp() {
           <SandboxTabs onOpenNewSandboxModal={() => setShowNewSandboxModal(true)} />
 
           {/* Main Dynamic Portfolio & Metric Banner */}
-          <PortfolioHeader />
+          <PortfolioHeader onOpenAgentModal={() => setShowAgentModal(true)} />
 
           {/* Main Asset Grid & Filter Area */}
           <main className="flex-1">
@@ -100,6 +104,10 @@ function MainVaultApp() {
         <AnalyticsModal onClose={() => setShowAnalyticsModal(false)} />
       )}
 
+      {showAgentModal && (
+        <OmniAgentModal onClose={() => setShowAgentModal(false)} />
+      )}
+
       {showStorageModal && (
         <StorageInventoryModal onClose={() => setShowStorageModal(false)} />
       )}
@@ -120,6 +128,9 @@ function MainVaultApp() {
         initialMode={authModal.mode}
         onClose={() => setAuthModal({ isOpen: false, mode: 'signin' })}
       />
+
+      {/* Floating Background AI Tasks Indicator */}
+      <BackgroundTasksIndicator />
     </div>
   );
 }

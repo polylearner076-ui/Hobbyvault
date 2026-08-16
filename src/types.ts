@@ -1,4 +1,115 @@
-export type HobbyType = 'pokemon' | 'beyblade' | 'tcg_general' | 'yugioh' | 'mtg' | 'onepiece' | 'gaming' | 'custom';
+export type StandardHobbyType =
+  | 'pokemon'
+  | 'beyblade'
+  | 'mtg'
+  | 'onepiece'
+  | 'yugioh'
+  | 'lorcana'
+  | 'sports_cards'
+  | 'tcg_general'
+  | 'gunpla'
+  | 'action_figures'
+  | 'lego'
+  | 'diecast'
+  | 'warhammer'
+  | 'gaming'
+  | 'consoles'
+  | 'comics_manga'
+  | 'anime_merch'
+  | 'watches'
+  | 'sneakers'
+  | 'coins_bullion'
+  | 'fine_art'
+  | 'vinyl_music'
+  | 'custom';
+
+export type HobbyType = StandardHobbyType | string;
+
+export interface CategoryGroup {
+  id: string;
+  name: string;
+  description: string;
+  iconName: string;
+}
+
+export interface CategoryTypeMeta {
+  id: HobbyType;
+  label: string;
+  group: string; // e.g. 'Trading Card Games (TCG)', 'Toys, Models & Spinning Tops', 'Gaming & Electronics', 'Luxury & Fashion', 'Comics & Entertainment', 'Art & Memorabilia', 'Custom Hobby'
+  description?: string;
+  defaultColor: string;
+  iconName: string;
+  isCustom?: boolean;
+  isTCG?: boolean;
+  isToy?: boolean;
+}
+
+export interface AgentFilter {
+  id: string;
+  query: string;
+  title: string;
+  matchedItemIds: string[];
+  matchedCount: number;
+  totalValueUSD: number;
+  active: boolean;
+}
+
+export interface AgentMetricBreakdown {
+  totalValueUSD: number;
+  totalCostUSD: number;
+  totalGainUSD: number;
+  gainPercent: number;
+  itemCount: number;
+  copyCount: number;
+  topAssets: Array<{
+    id: string;
+    name: string;
+    category: string;
+    valueUSD: number;
+    purchasePriceUSD?: number;
+    gainUSD?: number;
+    locationStr: string;
+    condition: string;
+    imageUrl?: string;
+  }>;
+  categoryBreakdown: Array<{
+    category: string;
+    label: string;
+    valueUSD: number;
+    count: number;
+    percentage: number;
+  }>;
+  storageBreakdown: Array<{
+    location: string;
+    container: string;
+    valueUSD: number;
+    count: number;
+    percentage: number;
+  }>;
+}
+
+export interface AgentQueryResult {
+  answer: string;
+  directAnswerSummary: string;
+  aggregatedMetrics: AgentMetricBreakdown;
+  matchedItemIds: string[];
+  matchedStorageLocations: Array<{ metaStorage: string; container?: string }>;
+  reasoningSteps: string[];
+  suggestedAction?: {
+    type: 'FILTER_PORTFOLIO' | 'VIEW_STORAGE' | 'HIGHLIGHT_ASSETS' | 'NONE';
+    label: string;
+    payload?: any;
+  };
+  filterCriteria?: {
+    includedCategories?: string[];
+    excludedCategories?: string[];
+    includedTags?: string[];
+    conditionGrades?: string[];
+    storageLocations?: string[];
+    minPriceUSD?: number;
+    maxPriceUSD?: number;
+  };
+}
 
 export type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD';
 
@@ -149,6 +260,20 @@ export interface Sandbox {
   createdAt: string;
   customFields?: { key: string; label: string; type: 'text' | 'number' | 'select' }[];
   userId?: string;
+  isAgentResult?: boolean;
+  agentQuery?: string;
+  agentResult?: AgentQueryResult;
+}
+
+export interface AgentBackgroundTask {
+  id: string;
+  prompt: string;
+  model: string;
+  status: 'running' | 'completed' | 'error';
+  startTime: number;
+  result?: AgentQueryResult;
+  error?: string;
+  createdSandboxId?: string;
 }
 
 export type TimeRange = '7D' | '1M' | '3M' | '6M' | '1Y' | 'ALL';
