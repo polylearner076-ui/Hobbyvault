@@ -83,6 +83,68 @@ export async function lookupLiveMarketPrice(params: {
   }
 }
 
+export interface SearchSuggestionResult {
+  id: string;
+  name: string;
+  category: 'pokemon' | 'beyblade' | 'mtg' | 'onepiece' | 'gaming' | 'other';
+  imageUrl?: string;
+  currentPriceUSD: number;
+  marketSource: string;
+  tags: string[];
+  cardSpecs?: {
+    game?: string;
+    setName?: string;
+    setNumber?: string;
+    rarity?: string;
+    illustrator?: string;
+    releaseYear?: number;
+    isFoil?: boolean;
+    gradingCompany?: 'PSA' | 'BGS' | 'CGC' | 'None';
+    gradeValue?: string;
+    certNumber?: string;
+  };
+  beybladeSpecs?: {
+    generation?: 'Beyblade X' | 'Burst' | 'Metal Fight' | 'Original / Plastics' | 'Other';
+    system?: string;
+    type?: 'Attack' | 'Defense' | 'Stamina' | 'Balance';
+    spinDirection?: 'Right' | 'Left' | 'Dual';
+    blade?: string;
+    ratchet?: string;
+    bit?: string;
+    weightGrams?: number;
+    code?: string;
+    brand?: 'Takara Tomy' | 'Hasbro';
+  };
+  storageLocation?: {
+    metaStorage?: string;
+    container?: string;
+    slot?: string;
+    notes?: string;
+  };
+}
+
+export async function searchOnlineSuggestions(
+  query: string,
+  category?: string
+): Promise<SearchSuggestionResult[]> {
+  try {
+    const res = await fetch('/api/search/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, category }),
+    });
+    if (!res.ok) {
+      console.warn('searchOnlineSuggestions endpoint status:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return data.suggestions || [];
+  } catch (err) {
+    console.warn('searchOnlineSuggestions fetch failed:', err);
+    return [];
+  }
+}
+
 export interface SyncBatchItemPayload {
   id: string;
   name: string;

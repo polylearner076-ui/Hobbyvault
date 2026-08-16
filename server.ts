@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { getAdminFirestore } from './server/firebaseAdmin.js';
-import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, getMemoryCacheStats } from './server/dataPipeline.js';
+import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, searchOnlineCollectibles, getMemoryCacheStats } from './server/dataPipeline.js';
 import { runApiTestSuite, auditAllIndividualAssets } from './server/tests/apiPipeline.test.js';
 import { auditSourceGroupsHealth, generateAssetMarketIntelligence, UPSTREAM_SOURCE_GROUPS } from './server/agentSystem.js';
 import { generateContentWithFallback } from './server/geminiService.js';
@@ -432,6 +432,27 @@ app.post('/api/pipeline/live-query', async (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// API: Debounced Online Collectibles Search & Dropdown Suggestions
+app.post('/api/search/suggestions', async (req, res) => {
+  try {
+    const { query, category } = req.body;
+    if (!query || typeof query !== 'string' || query.trim().length < 2) {
+      return res.json({ success: true, suggestions: [] });
+    }
+
+    const suggestions = await searchOnlineCollectibles(query.trim(), category);
+    res.json({
+      success: true,
+      query: query.trim(),
+      count: suggestions.length,
+      suggestions,
+    });
+  } catch (err: any) {
+    console.error('Search suggestions error:', err);
+    res.status(500).json({ success: false, error: err.message || 'Failed to search suggestions' });
   }
 });
 

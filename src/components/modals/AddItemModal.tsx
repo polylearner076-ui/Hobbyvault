@@ -1,12 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useVault } from '../../context/VaultContext';
-import { POPULAR_CATALOG_ITEMS } from '../../data/initialData';
-import { lookupLiveMarketPrice } from '../../services/api';
+import { lookupLiveMarketPrice, searchOnlineSuggestions, SearchSuggestionResult } from '../../services/api';
 import {
   X,
-  Search,
-  Plus,
   RefreshCw,
+  Sparkles,
+  CheckCircle2,
+  Globe,
+  Tag,
+  Box,
+  MapPin,
+  Layers,
+  ArrowRight,
+  Loader2,
+  ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
 import { HobbyType, ItemCondition } from '../../types';
 
@@ -15,10 +23,7 @@ interface AddItemModalProps {
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
-  const { sandboxes, activeSandboxId, addItem, formatPrice } = useVault();
-
-  const [activeTab, setActiveTab] = useState<'catalog' | 'custom'>('catalog');
-  const [catalogSearch, setCatalogSearch] = useState('');
+  const { sandboxes, activeSandboxId, addItem, formatPrice, storageUnits } = useVault();
 
   // Custom Item Form State
   const [name, setName] = useState('');
@@ -59,6 +64,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<string | null>(null);
 
+  // Debounced Online Suggestions State
+  const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestionResult[]>([]);
+  const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false);
+  const [showSuggestionsDropdown, setShowSuggestionsDropdown] = useState(false);
+  const [autoFilledNotice, setAutoFilledNotice] = useState<string | null>(null);
+  const [hasDismissedSuggestions, setHasDismissedSuggestions] = useState(false);
+  const dropdownContainerRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   // Sync category with selected sandbox
   const handleSandboxChange = (sbId: string) => {
     setSandboxId(sbId);
@@ -68,67 +82,125 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
     }
   };
 
-  // Filter Catalog
-  const filteredCatalog = useMemo(() => {
-    if (!catalogSearch.trim()) return POPULAR_CATALOG_ITEMS;
-    const q = catalogSearch.toLowerCase();
-    return POPULAR_CATALOG_ITEMS.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        item.tags.some((t) => t.toLowerCase().includes(q))
-    );
-  }, [catalogSearch]);
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownContainerRef.current &&
+        !dropdownContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestionsDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  // Handle Quick Add from Catalog
-  const handleQuickAdd = async (catalogItem: (typeof POPULAR_CATALOG_ITEMS)[0]) => {
-    const targetSandboxId =
-      activeSandboxId !== 'all'
-        ? activeSandboxId
-        : sandboxes.find((s) => s.type === catalogItem.category)?.id || sandboxes[0]?.id || 'sandbox-pokemon';
+  // Handle Escape key to close suggestions
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showSuggestionsDropdown) {
+        setShowSuggestionsDropdown(false);
+        setHasDismissedSuggestions(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSuggestionsDropdown]);
 
-    // Assign default storage based on category
-    const defaultStorage = catalogItem.category === 'beyblade'
-      ? {
-          metaStorage: 'Display Cabinet (Living Room)',
-          container: 'Acrylic Display Showcase Tier 1',
-          slot: 'Pedestal Showcase',
-          notes: 'Display casing enclosed',
+  // Debounced search effect (1.2 to 1.5 seconds)
+  useEffect(() => {
+    if (hasDismissedSuggestions) return;
+
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      setSearchSuggestions([]);
+      setShowSuggestionsDropdown(false);
+      setIsSearchingSuggestions(false);
+      return;
+    }
+
+    setIsSearchingSuggestions(true);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchOnlineSuggestions(trimmed, category);
+        setSearchSuggestions(results);
+        if (results.length > 0) {
+          setShowSuggestionsDropdown(true);
+        } else {
+          setShowSuggestionsDropdown(false);
         }
-      : {
-          metaStorage: 'Master Fireproof Safe (Office)',
-          container: 'VaultX 12-Pocket Premium Zip Binder',
-          slot: 'Page 1, Slot 1',
-          notes: 'Standard collector sleeve',
-        };
+      } catch (err) {
+        console.error('Failed to fetch online suggestions:', err);
+      } finally {
+        setIsSearchingSuggestions(false);
+      }
+    }, 1200); // 1.2s debounce
 
-    await addItem({
-      sandboxId: targetSandboxId,
-      name: catalogItem.name,
-      category: catalogItem.category as HobbyType,
-      imageUrl: catalogItem.imageUrl,
-      currentPriceUSD: catalogItem.currentPriceUSD,
-      purchasePriceUSD: Number((catalogItem.currentPriceUSD * 0.85).toFixed(2)),
-      purchaseDate: new Date().toISOString().split('T')[0],
-      quantity: 1,
-      condition: 'RAW_NM',
-      tags: catalogItem.tags,
-      priceHistory: [],
-      beybladeSpecs: (catalogItem as any).beybladeSpecs,
-      cardSpecs: (catalogItem as any).cardSpecs,
-      storageLocation: defaultStorage,
-      transactions: [
-        {
-          id: `tx-${Date.now()}`,
-          type: 'BUY',
-          date: new Date().toISOString().split('T')[0],
-          quantity: 1,
-          priceUSD: Number((catalogItem.currentPriceUSD * 0.85).toFixed(2)),
-          notes: 'Added from catalog',
-        },
-      ],
-      isFavorite: false,
-    });
-    onClose();
+    return () => clearTimeout(timer);
+  }, [name, category, hasDismissedSuggestions]);
+
+  // Handle selecting a suggested matched item
+  const handleSelectSuggestion = (item: SearchSuggestionResult) => {
+    setHasDismissedSuggestions(true);
+    setShowSuggestionsDropdown(false);
+
+    // Auto-fill all fields
+    setName(item.name);
+    setCategory(item.category as HobbyType);
+
+    // Pick matching sandbox if one exists
+    const matchedSandbox = sandboxes.find((s) => s.type === item.category);
+    if (matchedSandbox) {
+      setSandboxId(matchedSandbox.id);
+    }
+
+    if (item.imageUrl) {
+      setImageUrl(item.imageUrl);
+    }
+
+    const priceVal = item.currentPriceUSD || 25.00;
+    setCurrentPriceUSD(priceVal.toFixed(2));
+    setPurchasePriceUSD((priceVal * 0.85).toFixed(2));
+
+    if (item.tags && item.tags.length > 0) {
+      setTags(item.tags.join(', '));
+    }
+
+    // Auto-fill Card Specs
+    if (item.cardSpecs) {
+      if (item.cardSpecs.setName) setCardSet(item.cardSpecs.setName);
+      if (item.cardSpecs.rarity) setCardRarity(item.cardSpecs.rarity);
+      if (item.cardSpecs.gradingCompany) setGradingCompany(item.cardSpecs.gradingCompany);
+      if (item.cardSpecs.gradeValue) setGradeValue(item.cardSpecs.gradeValue);
+      if (item.cardSpecs.certNumber) setCertNumber(item.cardSpecs.certNumber);
+    }
+
+    // Auto-fill Beyblade Specs
+    if (item.beybladeSpecs) {
+      if (item.beybladeSpecs.generation) setBbGen(item.beybladeSpecs.generation);
+      if (item.beybladeSpecs.type) setBbType(item.beybladeSpecs.type);
+      if (item.beybladeSpecs.blade) setBbBlade(item.beybladeSpecs.blade);
+      if (item.beybladeSpecs.ratchet) setBbRatchet(item.beybladeSpecs.ratchet);
+      if (item.beybladeSpecs.bit) setBbBit(item.beybladeSpecs.bit);
+      if (item.beybladeSpecs.brand) setBbBrand(item.beybladeSpecs.brand);
+    }
+
+    // Auto-fill Physical Storage Location
+    if (item.storageLocation) {
+      if (item.storageLocation.metaStorage) setMetaStorage(item.storageLocation.metaStorage);
+      if (item.storageLocation.container) setContainer(item.storageLocation.container);
+      if (item.storageLocation.slot) setSlot(item.storageLocation.slot);
+      if (item.storageLocation.notes) setStorageNotes(item.storageLocation.notes);
+    }
+
+    setFetchStatus(`Live market price matched: $${priceVal.toFixed(2)} (${item.marketSource})`);
+    setAutoFilledNotice(`✓ Auto-filled from ${item.marketSource}`);
+
+    // Fade out notice
+    setTimeout(() => {
+      setAutoFilledNotice(null);
+    }, 4000);
   };
 
   // Live price estimation for custom entry
@@ -145,7 +217,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
       if (res && res.currentPriceUSD) {
         setCurrentPriceUSD(res.currentPriceUSD.toString());
         setPurchasePriceUSD((res.currentPriceUSD * 0.85).toFixed(2));
-        setFetchStatus(`Live market price found: ${res.currentPriceUSD} (${res.marketSource || 'API'})`);
+        setFetchStatus(`Live market price found: $${res.currentPriceUSD} (${res.marketSource || 'API'})`);
       } else {
         setFetchStatus('No live price feed found, using default estimate.');
       }
@@ -171,7 +243,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
 
     const defaultImg =
       category === 'beyblade'
-        ? 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=600&q=80'
+        ? '/assets/images/cobalt_drake_bey_1786709634306.jpg'
         : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
 
     await addItem({
@@ -251,377 +323,523 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="px-6 pt-3 border-b border-black/[0.06] bg-[#F2F2F7]/50 flex gap-2">
-          <button
-            onClick={() => setActiveTab('catalog')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'catalog'
-                ? 'border-[#007AFF] text-[#007AFF]'
-                : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
-            }`}
-          >
-            Popular Catalog Search
-          </button>
-          <button
-            onClick={() => setActiveTab('custom')}
-            className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'custom'
-                ? 'border-[#007AFF] text-[#007AFF]'
-                : 'border-transparent text-[#8E8E93] hover:text-[#1C1C1E]'
-            }`}
-          >
-            Custom Item / Manual Entry
-          </button>
-        </div>
-
         {/* Modal Content */}
         <div className="p-6 overflow-y-auto flex-1">
-          {activeTab === 'catalog' ? (
-            <div className="space-y-4">
-              {/* Catalog Search Input */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-[#8E8E93] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={catalogSearch}
-                  onChange={(e) => setCatalogSearch(e.target.value)}
-                  placeholder="Search Pokémon cards, Beyblade X releases, MTG, One Piece..."
-                  className="w-full pl-9 pr-4 py-2.5 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-xs sm:text-sm text-[#1C1C1E] placeholder-[#8E8E93] focus:outline-none focus:border-[#007AFF]"
-                  autoFocus
-                />
+          {/* Custom Form with Online Debounced Search */}
+          <form onSubmit={handleCustomSubmit} className="space-y-4 text-xs">
+            {/* Auto-filled Notification Banner */}
+            {autoFilledNotice && (
+              <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl animate-in fade-in slide-in-from-top-1 text-xs font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{autoFilledNotice}</span>
               </div>
+            )}
 
-              {/* Catalog Items Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
-                {filteredCatalog.map((catItem, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-[#F2F2F7] border border-black/[0.06] hover:bg-black/[0.03] transition-colors"
-                  >
-                    <div className="flex items-center gap-3 truncate">
-                      <img
-                        src={catItem.imageUrl}
-                        alt={catItem.name}
-                        referrerPolicy="no-referrer"
-                        className="w-12 h-12 object-contain rounded-lg bg-white p-1 border border-black/[0.06] shrink-0"
-                      />
-                      <div className="truncate">
-                        <div className="font-bold text-xs text-[#1C1C1E] truncate">{catItem.name}</div>
-                        <div className="text-[11px] text-[#007AFF] font-mono font-semibold mt-0.5">
-                          {formatPrice(catItem.currentPriceUSD)}
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleQuickAdd(catItem)}
-                      className="ml-2 px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs flex items-center gap-1 shrink-0 shadow-sm cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Add</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            /* Custom Form */
-            <form onSubmit={handleCustomSubmit} className="space-y-4 text-xs">
-              {/* Target Sandbox */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Target Hobby Sandbox / Vault *
-                  </label>
-                  <select
-                    value={sandboxId}
-                    onChange={(e) => handleSandboxChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium focus:outline-none focus:border-[#007AFF]"
-                  >
-                    {sandboxes.map((sb) => (
-                      <option key={sb.id} value={sb.id}>
-                        {sb.name} ({sb.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Hobby Category
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e: any) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium focus:outline-none focus:border-[#007AFF]"
-                  >
-                    <option value="pokemon">Pokémon TCG</option>
-                    <option value="beyblade">Beyblade</option>
-                    <option value="onepiece">One Piece TCG</option>
-                    <option value="mtg">Magic: The Gathering</option>
-                    <option value="yugioh">Yu-Gi-Oh!</option>
-                    <option value="gaming">Retro / Modern Gaming</option>
-                    <option value="tcg_general">Other Collectible</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Item Name & Live Price Fetcher */}
+            {/* Target Sandbox & Category */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                  Item Name / Card Title *
+                  Target Hobby Sandbox / Vault *
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Cobalt Drake 4-60F, Charizard ex #199/165, Black Lotus..."
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleEstimatePrice}
-                    disabled={isFetchingPrice}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-[#007AFF] border border-[#007AFF]/20 font-semibold text-xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isFetchingPrice ? 'animate-spin' : ''}`} />
-                    <span>Fetch Price</span>
-                  </button>
-                </div>
-                {fetchStatus && <div className="text-[11px] text-[#007AFF] mt-1 font-medium">{fetchStatus}</div>}
+                <select
+                  value={sandboxId}
+                  onChange={(e) => handleSandboxChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium focus:outline-none focus:border-[#007AFF]"
+                >
+                  {sandboxes.map((sb) => (
+                    <option key={sb.id} value={sb.id}>
+                      {sb.name} ({sb.type})
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Pricing, Quantity & Condition */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Market Price ($)
-                  </label>
+              <div>
+                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                  Hobby Category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e: any) => {
+                    setCategory(e.target.value);
+                    setHasDismissedSuggestions(false);
+                  }}
+                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium focus:outline-none focus:border-[#007AFF]"
+                >
+                  <option value="pokemon">Pokémon TCG</option>
+                  <option value="beyblade">Beyblade</option>
+                  <option value="onepiece">One Piece TCG</option>
+                  <option value="mtg">Magic: The Gathering</option>
+                  <option value="yugioh">Yu-Gi-Oh!</option>
+                  <option value="gaming">Retro / Modern Gaming</option>
+                  <option value="tcg_general">Other Collectible</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Item Name & Live Debounce Online Search Container */}
+            <div ref={dropdownContainerRef} className="relative">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-[#8E8E93]">
+                  Item Name / Card Title *
+                </label>
+                {isSearchingSuggestions ? (
+                  <span className="flex items-center gap-1 text-[10px] text-[#007AFF] font-medium animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Checking live market databases...</span>
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-[#8E8E93]">
+                    Type and pause 1s for online auto-suggestions
+                  </span>
+                )}
+              </div>
+
+              <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    required
+                    placeholder="e.g. Charizard ex 151, Cobalt Drake, Black Lotus, Wizard Rod..."
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setHasDismissedSuggestions(false);
+                    }}
+                    onFocus={() => {
+                      if (searchSuggestions.length > 0 && name.trim().length >= 2) {
+                        setShowSuggestionsDropdown(true);
+                      }
+                    }}
+                    className="w-full pl-3 pr-8 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                  />
+                  {isSearchingSuggestions && (
+                    <Loader2 className="w-3.5 h-3.5 text-[#007AFF] animate-spin absolute right-2.5 top-1/2 -translate-y-1/2" />
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleEstimatePrice}
+                  disabled={isFetchingPrice}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#007AFF]/10 hover:bg-[#007AFF]/15 text-[#007AFF] border border-[#007AFF]/20 font-semibold text-xs transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isFetchingPrice ? 'animate-spin' : ''}`} />
+                  <span>Fetch Price</span>
+                </button>
+              </div>
+
+              {/* Floating Debounced Online Suggestions Dropdown */}
+              {showSuggestionsDropdown && searchSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1.5 bg-white/95 backdrop-blur-xl border border-black/10 shadow-2xl rounded-2xl p-2 z-50 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-black/[0.06] mb-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#1C1C1E]">
+                      <Globe className="w-3.5 h-3.5 text-[#007AFF]" />
+                      <span>Live Online Matched Items ({searchSuggestions.length})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#8E8E93]">Click to auto-fill form</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowSuggestionsDropdown(false)}
+                        className="text-[#8E8E93] hover:text-[#1C1C1E] p-0.5 rounded cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    {searchSuggestions.map((item) => (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelectSuggestion(item)}
+                        className="flex items-center justify-between p-2 rounded-xl hover:bg-[#007AFF]/10 border border-transparent hover:border-[#007AFF]/20 transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {item.imageUrl ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              referrerPolicy="no-referrer"
+                              className="w-10 h-10 object-contain rounded-lg bg-[#F2F2F7] p-1 border border-black/[0.06] shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-[#F2F2F7] flex items-center justify-center text-[#8E8E93] shrink-0">
+                              <Box className="w-5 h-5" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs text-[#1C1C1E] group-hover:text-[#007AFF] transition-colors truncate">
+                              {item.name}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] px-1.5 py-0.5 bg-black/[0.05] rounded text-[#8E8E93] font-medium capitalize">
+                                {item.category}
+                              </span>
+                              <span className="text-[10px] text-[#8E8E93] truncate">
+                                {item.marketSource}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0 ml-3">
+                          {item.currentPriceUSD ? (
+                            <div className="text-xs font-bold font-mono text-emerald-600">
+                              {formatPrice(item.currentPriceUSD)}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-[#8E8E93]">Est. Market</div>
+                          )}
+                          <span className="text-[10px] text-[#007AFF] font-medium group-hover:underline flex items-center justify-end gap-0.5 mt-0.5">
+                            Auto Fill <ArrowRight className="w-2.5 h-2.5" />
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Price Feedback Alert */}
+            {fetchStatus && (
+              <div className="p-2.5 rounded-xl bg-[#007AFF]/5 border border-[#007AFF]/15 text-[#007AFF] text-[11px] flex items-center justify-between">
+                <span>{fetchStatus}</span>
+              </div>
+            )}
+
+            {/* Pricing and Acquisition Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                  Est. Market (USD) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8E8E93] font-mono">$</span>
                   <input
                     type="number"
                     step="0.01"
                     required
                     value={currentPriceUSD}
                     onChange={(e) => setCurrentPriceUSD(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-mono focus:outline-none focus:border-[#007AFF]"
+                    className="w-full pl-6 pr-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-mono text-xs focus:outline-none focus:border-[#007AFF]"
                   />
                 </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Buy Price ($)
-                  </label>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                  Paid Price (USD) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8E8E93] font-mono">$</span>
                   <input
                     type="number"
                     step="0.01"
                     required
                     value={purchasePriceUSD}
                     onChange={(e) => setPurchasePriceUSD(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-mono focus:outline-none focus:border-[#007AFF]"
+                    className="w-full pl-6 pr-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-mono text-xs focus:outline-none focus:border-[#007AFF]"
                   />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-mono focus:outline-none focus:border-[#007AFF]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Condition / Grade
-                  </label>
-                  <select
-                    value={condition}
-                    onChange={(e: any) => setCondition(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
-                  >
-                    <option value="RAW_NM">Raw Near Mint</option>
-                    <option value="PSA_10">PSA 10 Gem Mint</option>
-                    <option value="PSA_9">PSA 9 Mint</option>
-                    <option value="BGS_10">BGS 10 Pristine</option>
-                    <option value="CGC_10">CGC 10 Pristine</option>
-                    <option value="NIB">New in Box (NIB)</option>
-                    <option value="MINT_IN_BOX">Mint in Box</option>
-                    <option value="RAW_LP">Raw Lightly Played</option>
-                  </select>
                 </div>
               </div>
 
-              {/* Beyblade Specific Fields */}
-              {category === 'beyblade' && (
-                <div className="p-3 rounded-2xl bg-[#F2F2F7] border border-black/[0.06] space-y-2">
-                  <div className="text-[11px] font-bold text-[#007AFF] uppercase tracking-wider">
-                    Beyblade Parameters
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <div>
-                      <label className="text-[10px] text-[#8E8E93] font-bold block">Generation</label>
-                      <select
-                        value={bbGen}
-                        onChange={(e: any) => setBbGen(e.target.value)}
-                        className="w-full px-2 py-1 bg-white border border-black/[0.08] rounded-lg text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
-                      >
-                        <option value="Beyblade X">Beyblade X</option>
-                        <option value="Burst">Beyblade Burst</option>
-                        <option value="Metal Fight">Metal Fight (MFB)</option>
-                        <option value="Original / Plastics">Original / Plastics</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[#8E8E93] font-bold block">Type</label>
-                      <select
-                        value={bbType}
-                        onChange={(e: any) => setBbType(e.target.value)}
-                        className="w-full px-2 py-1 bg-white border border-black/[0.08] rounded-lg text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
-                      >
-                        <option value="Attack">Attack</option>
-                        <option value="Defense">Defense</option>
-                        <option value="Stamina">Stamina</option>
-                        <option value="Balance">Balance</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[#8E8E93] font-bold block">Ratchet / Track</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 3-60, 5-70"
-                        value={bbRatchet}
-                        onChange={(e) => setBbRatchet(e.target.value)}
-                        className="w-full px-2 py-1 bg-white border border-black/[0.08] rounded-lg text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[#8E8E93] font-bold block">Bit / Tip</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Flat, Ball, Needle"
-                        value={bbBit}
-                        onChange={(e) => setBbBit(e.target.value)}
-                        className="w-full px-2 py-1 bg-white border border-black/[0.08] rounded-lg text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+              <div>
+                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                />
+              </div>
 
-              {/* Physical Storage Location Section */}
-              <div className="p-3.5 rounded-2xl bg-[#F2F2F7] border border-black/[0.06] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="text-[11px] font-bold text-[#007AFF] uppercase tracking-wider flex items-center gap-1.5">
-                    <span>Physical Storage & Placement</span>
-                  </div>
-                  <span className="text-[10px] text-[#8E8E93]">Organize in binder, safe, or display box</span>
-                </div>
+              <div>
+                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                  Condition
+                </label>
+                <select
+                  value={condition}
+                  onChange={(e: any) => setCondition(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                >
+                  <option value="GRADED_GEM_MINT">Graded (Gem Mint 10)</option>
+                  <option value="GRADED_MINT">Graded (Mint 9)</option>
+                  <option value="SEALED">Factory Sealed (NIB)</option>
+                  <option value="RAW_NM">Raw Near Mint</option>
+                  <option value="RAW_LP">Raw Light Play</option>
+                  <option value="RAW_MP">Raw Moderately Played</option>
+                  <option value="RAW_HP">Raw Heavily Played / Damaged</option>
+                </select>
+              </div>
+            </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {/* Beyblade Specifications (Conditional) */}
+            {category === 'beyblade' && (
+              <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-3">
+                <div className="flex items-center gap-1.5 text-amber-700 font-bold text-[11px]">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Beyblade Battle & Assembly Specifications</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   <div>
-                    <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
-                      1. Meta Storage / Safe
-                    </label>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Generation</label>
+                    <select
+                      value={bbGen}
+                      onChange={(e: any) => setBbGen(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
+                    >
+                      <option value="Beyblade X">Beyblade X</option>
+                      <option value="Burst">Burst</option>
+                      <option value="Metal Fight">Metal Fight</option>
+                      <option value="Original / Plastics">Original / Plastics</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Type</label>
+                    <select
+                      value={bbType}
+                      onChange={(e: any) => setBbType(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
+                    >
+                      <option value="Attack">Attack</option>
+                      <option value="Defense">Defense</option>
+                      <option value="Stamina">Stamina</option>
+                      <option value="Balance">Balance</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Brand / Manufacturer</label>
+                    <select
+                      value={bbBrand}
+                      onChange={(e: any) => setBbBrand(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
+                    >
+                      <option value="Takara Tomy">Takara Tomy</option>
+                      <option value="Hasbro">Hasbro</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Blade Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Master Fireproof Safe"
-                      value={metaStorage}
-                      onChange={(e) => setMetaStorage(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                      placeholder="e.g. Cobalt Drake"
+                      value={bbBlade}
+                      onChange={(e) => setBbBlade(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
-                      2. Container / Binder
-                    </label>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Ratchet (X) / Track</label>
                     <input
                       type="text"
-                      placeholder="e.g. VaultX 12-Pocket Binder"
-                      value={container}
-                      onChange={(e) => setContainer(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                      placeholder="e.g. 4-60, 5-70, 9-60"
+                      value={bbRatchet}
+                      onChange={(e) => setBbRatchet(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
-                      3. Slot / Page Position
-                    </label>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Bit (X) / Tip</label>
                     <input
                       type="text"
-                      placeholder="e.g. Page 1, Slot 1"
-                      value={slot}
-                      onChange={(e) => setSlot(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                      placeholder="e.g. Flat (F), Disc Ball (DB)"
+                      value={bbBit}
+                      onChange={(e) => setBbBit(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
                     />
                   </div>
                 </div>
+              </div>
+            )}
 
+            {/* Trading Card Specifications (Conditional) */}
+            {(category === 'pokemon' || category === 'onepiece' || category === 'mtg' || category === 'yugioh') && (
+              <div className="p-3.5 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-3">
+                <div className="flex items-center gap-1.5 text-blue-700 font-bold text-[11px]">
+                  <Tag className="w-3.5 h-3.5" />
+                  <span>Card Grading & Set Specifications</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Set Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 151, Awakening of the New Era"
+                      value={cardSet}
+                      onChange={(e) => setCardSet(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Rarity</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Special Illustration Rare, SEC"
+                      value={cardRarity}
+                      onChange={(e) => setCardRarity(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Grading Service</label>
+                    <select
+                      value={gradingCompany}
+                      onChange={(e: any) => setGradingCompany(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs"
+                    >
+                      <option value="None">Raw / Ungraded</option>
+                      <option value="PSA">PSA</option>
+                      <option value="BGS">BGS (Beckett)</option>
+                      <option value="CGC">CGC</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">Grade</label>
+                    <input
+                      type="text"
+                      disabled={gradingCompany === 'None'}
+                      placeholder="10, 9.5, 9"
+                      value={gradeValue}
+                      onChange={(e) => setGradeValue(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs disabled:opacity-40"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Physical Storage & Real-Life Location */}
+            <div className="p-3.5 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-purple-800 font-bold text-[11px]">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Physical Storage & Real-Life Inventory Location</span>
+                </div>
+                <span className="text-[10px] text-[#8E8E93]">Reverse lookup in Profile</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-[10px] text-[#8E8E93] font-bold block mb-1">
-                    Storage Protection / Sleeve Notes (Optional)
+                  <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">
+                    1. Meta Storage (Room/Safe/Closet)
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Double sleeved + Toploader + Silica Gel"
-                    value={storageNotes}
-                    onChange={(e) => setStorageNotes(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                    placeholder="e.g. Master Fireproof Safe (Office)"
+                    value={metaStorage}
+                    onChange={(e) => setMetaStorage(e.target.value)}
+                    list="add-item-known-metas"
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs focus:outline-none focus:border-[#007AFF]"
                   />
+                  <datalist id="add-item-known-metas">
+                    {Array.from(new Set(storageUnits.map((u) => u.metaStorage))).map((m) => (
+                      <option key={m} value={m} />
+                    ))}
+                  </datalist>
                 </div>
-              </div>
 
-              {/* Image URL & Tags */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Image URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://images... (leave blank for high-res placeholder)"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                    Tags (Comma Separated)
+                  <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">
+                    2. Specific Storage (Binder/Case/Box)
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 151, Grail, Rare Bey Get, Alt Art"
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                    placeholder="e.g. VaultX 12-Pocket Zip Binder"
+                    value={container}
+                    onChange={(e) => setContainer(e.target.value)}
+                    list="add-item-known-containers"
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs focus:outline-none focus:border-[#007AFF]"
+                  />
+                  <datalist id="add-item-known-containers">
+                    {Array.from(
+                      new Set(
+                        storageUnits
+                          .filter((u) => !metaStorage || u.metaStorage === metaStorage)
+                          .map((u) => u.container)
+                      )
+                    ).map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">
+                    3. Precise Slot / Compartment
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Page 1, Slot 1"
+                    value={slot}
+                    onChange={(e) => setSlot(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs focus:outline-none focus:border-[#007AFF]"
                   />
                 </div>
               </div>
+            </div>
 
-              {/* Submit Buttons */}
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] font-medium cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs shadow-sm cursor-pointer"
-                >
-                  Add to Vault
-                </button>
+            {/* Image URL & Tags */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                  Custom Image URL (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                />
               </div>
-            </form>
-          )}
+
+              <div>
+                <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
+                  Tags (Comma Separated)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 151, Grail, Rare Bey Get, Alt Art"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] text-xs focus:outline-none focus:border-[#007AFF]"
+                />
+              </div>
+            </div>
+
+            {/* Submit Buttons */}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl text-[#8E8E93] hover:text-[#1C1C1E] font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs shadow-sm cursor-pointer"
+              >
+                Add to Vault
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

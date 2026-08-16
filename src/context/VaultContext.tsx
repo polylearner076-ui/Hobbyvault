@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { AssetItem, Sandbox, CurrencyCode, TimeRange, PriceHistoryPoint } from '../types';
+import { AssetItem, Sandbox, CurrencyCode, TimeRange, PriceHistoryPoint, StorageUnit, StorageLocation } from '../types';
 import { INITIAL_SANDBOXES, CURRENCIES, generateHistory, upsertPriceHistoryPoint } from '../data/initialData';
 import { generateStarterPortfolioForUser } from '../services/portfolioGenerator';
 import luffyMangaImg from '../assets/images/luffy_op05_manga_1786710252169.jpg';
@@ -15,6 +15,44 @@ import {
   savePortfolioSummaryToDatabase,
   clearUserVaultInDatabase,
 } from '../services/dbService';
+
+export const DEFAULT_STORAGE_UNITS: StorageUnit[] = [
+  {
+    id: 'unit-safe-pelican',
+    metaStorage: 'Master Fireproof Safe (Office)',
+    container: 'Pelican 1500 Slab Case',
+    type: 'slab_case',
+    notes: 'Heavy-duty waterproof & fire-resistant lockbox for high-grade slabs',
+  },
+  {
+    id: 'unit-safe-vaultx',
+    metaStorage: 'Master Fireproof Safe (Office)',
+    container: 'VaultX 12-Pocket Premium Zip Binder',
+    type: 'binder',
+    notes: 'Side-loading 12-pocket archival binder for master sets',
+  },
+  {
+    id: 'unit-display-showcase',
+    metaStorage: 'Display Cabinet (Living Room)',
+    container: 'Acrylic Display Showcase Tier 1',
+    type: 'display',
+    notes: 'UV-blocking acrylic showcase stand',
+  },
+  {
+    id: 'unit-bank-deposit',
+    metaStorage: 'Bank Safe Deposit Box #412',
+    container: 'Metal Security Box',
+    type: 'deposit_box',
+    notes: 'Institutional high-security lockbox',
+  },
+  {
+    id: 'unit-archive-monster',
+    metaStorage: 'Archive Storage Closet',
+    container: 'BCW 3200-ct Monster Box',
+    type: 'box',
+    notes: 'Bulk and raw playables storage box',
+  },
+];
 
 interface VaultContextType {
   sandboxes: Sandbox[];
@@ -43,6 +81,24 @@ interface VaultContextType {
   autoSyncIntervalSeconds: number;
   setAutoSyncIntervalSeconds: (secs: number) => void;
   nextSyncCountdown: number;
+
+  // Active Top-Level Microservice View
+  activeView: 'portfolio' | 'storage';
+  setActiveView: (view: 'portfolio' | 'storage') => void;
+  storageFocusLocation: { meta?: string; container?: string } | null;
+  setStorageFocusLocation: (loc: { meta?: string; container?: string } | null) => void;
+
+  // Storage Units & Locations Management
+  storageUnits: StorageUnit[];
+  starredStorageKeys: string[];
+  toggleStarLocation: (key: string) => void;
+  isLocationStarred: (key: string) => boolean;
+  addStorageUnit: (unit: Omit<StorageUnit, 'id' | 'createdAt'>) => StorageUnit;
+  deleteStorageUnit: (id: string) => void;
+  deleteStorageLocation: (metaStorage: string, container?: string) => Promise<{ success: boolean; message: string }>;
+  updateStorageUnit: (id: string, updates: Partial<StorageUnit>) => void;
+  switchItemStorage: (itemId: string, newStorage: StorageLocation) => Promise<void>;
+  batchSwitchItemStorage: (itemIds: string[], newStorage: StorageLocation) => Promise<void>;
 
   // Actions
   addItem: (item: Omit<AssetItem, 'id' | 'lastUpdated'>) => Promise<void>;
@@ -86,6 +142,9 @@ const VaultContext = createContext<VaultContextType | undefined>(undefined);
 const STORAGE_KEY_CURRENCY = 'collectorvault_currency_v2';
 const STORAGE_KEY_AUTOSYNC_ENABLED = 'collectorvault_autosync_enabled_v1';
 const STORAGE_KEY_AUTOSYNC_INTERVAL = 'collectorvault_autosync_interval_v1';
+const STORAGE_KEY_STORAGE_UNITS = 'collectorvault_storage_units_v1';
+const STORAGE_KEY_STARRED_STORAGES = 'collectorvault_starred_storages_v1';
+const STORAGE_KEY_ACTIVE_VIEW = 'collectorvault_active_view_v1';
 
 // Canonical image mapping for known collectibles to ensure high fidelity rendering
 const CANONICAL_IMAGE_MAP: Record<string, string> = {
@@ -175,6 +234,251 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
   const [nextSyncCountdown, setNextSyncCountdown] = useState<number>(autoSyncIntervalSeconds);
+
+  // Active microservice view: 'portfolio' | 'storage'
+  const [activeView, setActiveView] = useState<'portfolio' | 'storage'>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_ACTIVE_VIEW);
+      return stored === 'storage' ? 'storage' : 'portfolio';
+    } catch {
+      return 'portfolio';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_VIEW, activeView);
+    } catch {}
+  }, [activeView]);
+
+  const [storageFocusLocation, setStorageFocusLocation] = useState<{ meta?: string; container?: string } | null>(null);
+
+  // Starred Storage locations & containers
+  const [starredStorageKeys, setStarredStorageKeys] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_STARRED_STORAGES);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return ['Master Fireproof Safe (Office)', 'Master Fireproof Safe (Office):::Pelican 1500 Slab Case'];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_STARRED_STORAGES, JSON.stringify(starredStorageKeys));
+    } catch {}
+  }, [starredStorageKeys]);
+
+  const toggleStarLocation = (key: string) => {
+    const trimmed = key.trim();
+    if (!trimmed) return;
+    setStarredStorageKeys((prev) =>
+      prev.includes(trimmed) ? prev.filter((k) => k !== trimmed) : [...prev, trimmed]
+    );
+  };
+
+  const isLocationStarred = (key: string): boolean => {
+    return starredStorageKeys.includes(key.trim());
+  };
+
+  // Storage Units persistent state
+  const [customStorageUnits, setCustomStorageUnits] = useState<StorageUnit[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_STORAGE_UNITS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_STORAGE_UNITS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_STORAGE_UNITS, JSON.stringify(customStorageUnits));
+    } catch {
+      // Ignore
+    }
+  }, [customStorageUnits]);
+
+  // Storage Units unified with dynamically inferred ones from items
+  const storageUnits = useMemo(() => {
+    const unitsMap = new Map<string, StorageUnit>();
+
+    // 1. Add all configured units
+    customStorageUnits.forEach((unit) => {
+      const meta = unit.metaStorage.trim();
+      const cont = unit.container.trim();
+      if (meta && cont) {
+        unitsMap.set(`${meta}:::${cont}`, unit);
+      }
+    });
+
+    // 2. Add any units inferred from items
+    items.forEach((item) => {
+      if (item.storageLocation?.metaStorage && item.storageLocation?.container) {
+        const meta = item.storageLocation.metaStorage.trim();
+        const cont = item.storageLocation.container.trim();
+        const key = `${meta}:::${cont}`;
+        if (!unitsMap.has(key)) {
+          unitsMap.set(key, {
+            id: `unit-inferred-${Math.random().toString(36).substring(2, 7)}`,
+            metaStorage: meta,
+            container: cont,
+            type: cont.toLowerCase().includes('binder')
+              ? 'binder'
+              : cont.toLowerCase().includes('slab') || cont.toLowerCase().includes('case')
+              ? 'slab_case'
+              : 'safe',
+          });
+        }
+      }
+    });
+
+    return Array.from(unitsMap.values());
+  }, [customStorageUnits, items]);
+
+  const addStorageUnit = (unitData: Omit<StorageUnit, 'id' | 'createdAt'>): StorageUnit => {
+    const newUnit: StorageUnit = {
+      ...unitData,
+      metaStorage: unitData.metaStorage.trim(),
+      container: unitData.container.trim(),
+      id: `unit-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: new Date().toISOString().split('T')[0],
+      userId: activeUserId || undefined,
+    };
+
+    setCustomStorageUnits((prev) => {
+      const filtered = prev.filter(
+        (u) =>
+          !(
+            u.metaStorage.trim().toLowerCase() === newUnit.metaStorage.toLowerCase() &&
+            u.container.trim().toLowerCase() === newUnit.container.toLowerCase()
+          )
+      );
+      return [...filtered, newUnit];
+    });
+
+    return newUnit;
+  };
+
+  const deleteStorageUnit = (id: string) => {
+    setCustomStorageUnits((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  const deleteStorageLocation = async (
+    metaStorage: string,
+    container?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const targetMeta = metaStorage.trim();
+    const targetCont = container?.trim();
+
+    if (targetCont) {
+      // Deleting a specific container
+      // 1. Remove from customStorageUnits
+      setCustomStorageUnits((prev) =>
+        prev.filter(
+          (u) =>
+            !(
+              u.metaStorage.trim().toLowerCase() === targetMeta.toLowerCase() &&
+              u.container.trim().toLowerCase() === targetCont.toLowerCase()
+            )
+        )
+      );
+
+      // 2. Remove star if present
+      const containerKey = `${targetMeta}:::${targetCont}`;
+      setStarredStorageKeys((prev) => prev.filter((k) => k !== containerKey));
+
+      // 3. Check if any items are in this container, clear their location to unassigned
+      const affectedItems = items.filter(
+        (i) =>
+          i.storageLocation?.metaStorage?.trim().toLowerCase() === targetMeta.toLowerCase() &&
+          i.storageLocation?.container?.trim().toLowerCase() === targetCont.toLowerCase()
+      );
+
+      if (affectedItems.length > 0 && activeUserId) {
+        const updated = items.map((item) => {
+          if (
+            item.storageLocation?.metaStorage?.trim().toLowerCase() === targetMeta.toLowerCase() &&
+            item.storageLocation?.container?.trim().toLowerCase() === targetCont.toLowerCase()
+          ) {
+            return { ...item, storageLocation: undefined, lastUpdated: new Date().toISOString() };
+          }
+          return item;
+        });
+        setItems(updated);
+        for (const item of affectedItems) {
+          await saveItemToDatabase({ ...item, storageLocation: undefined }, activeUserId);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Storage container "${targetCont}" removed successfully.`,
+      };
+    } else {
+      // Deleting entire MetaStorage location
+      setCustomStorageUnits((prev) =>
+        prev.filter((u) => u.metaStorage.trim().toLowerCase() !== targetMeta.toLowerCase())
+      );
+
+      setStarredStorageKeys((prev) =>
+        prev.filter((k) => k !== targetMeta && !k.startsWith(`${targetMeta}:::`))
+      );
+
+      const affectedItems = items.filter(
+        (i) => i.storageLocation?.metaStorage?.trim().toLowerCase() === targetMeta.toLowerCase()
+      );
+
+      if (affectedItems.length > 0 && activeUserId) {
+        const updated = items.map((item) => {
+          if (item.storageLocation?.metaStorage?.trim().toLowerCase() === targetMeta.toLowerCase()) {
+            return { ...item, storageLocation: undefined, lastUpdated: new Date().toISOString() };
+          }
+          return item;
+        });
+        setItems(updated);
+        for (const item of affectedItems) {
+          await saveItemToDatabase({ ...item, storageLocation: undefined }, activeUserId);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Storage location "${targetMeta}" and its containers removed successfully.`,
+      };
+    }
+  };
+
+  const updateStorageUnit = (id: string, updates: Partial<StorageUnit>) => {
+    setCustomStorageUnits((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));
+  };
+
+  const switchItemStorage = async (itemId: string, newStorage: StorageLocation) => {
+    await updateItem(itemId, { storageLocation: newStorage });
+  };
+
+  const batchSwitchItemStorage = async (itemIds: string[], newStorage: StorageLocation) => {
+    if (!activeUserId || itemIds.length === 0) return;
+    const set = new Set(itemIds);
+    const updatedItems = items.map((item) => {
+      if (set.has(item.id)) {
+        return {
+          ...item,
+          storageLocation: newStorage,
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+      return item;
+    });
+    setItems(updatedItems);
+    for (const it of updatedItems.filter((i) => set.has(i.id))) {
+      await saveItemToDatabase(it, activeUserId);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -792,6 +1096,20 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         autoSyncIntervalSeconds,
         setAutoSyncIntervalSeconds,
         nextSyncCountdown,
+        activeView,
+        setActiveView,
+        storageFocusLocation,
+        setStorageFocusLocation,
+        storageUnits,
+        starredStorageKeys,
+        toggleStarLocation,
+        isLocationStarred,
+        addStorageUnit,
+        deleteStorageUnit,
+        deleteStorageLocation,
+        updateStorageUnit,
+        switchItemStorage,
+        batchSwitchItemStorage,
         addItem,
         updateItem,
         deleteItem,

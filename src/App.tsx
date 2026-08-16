@@ -12,13 +12,14 @@ import { AnalyticsModal } from './components/modals/AnalyticsModal';
 import { CustomSandboxModal } from './components/modals/CustomSandboxModal';
 import { ApiDiagnosticsModal } from './components/modals/ApiDiagnosticsModal';
 import { StorageInventoryModal } from './components/modals/StorageInventoryModal';
+import { PhysicalStorageHub } from './components/storage/PhysicalStorageHub';
 import { AuthModal } from './components/auth/AuthModal';
 import { GuestWelcomeView } from './components/auth/GuestWelcomeView';
 import { AssetItem } from './types';
 
 function MainVaultApp() {
   const { activeUserId } = useAuth();
-  const { selectedItem, setSelectedItem } = useVault();
+  const { selectedItem, setSelectedItem, activeView, setActiveView } = useVault();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
@@ -41,7 +42,7 @@ function MainVaultApp() {
         onOpenAddModal={() => setShowAddModal(true)}
         onOpenScanModal={() => setShowScanModal(true)}
         onOpenAnalyticsModal={() => setShowAnalyticsModal(true)}
-        onOpenStorageModal={() => setShowStorageModal(true)}
+        onOpenStorageModal={() => setActiveView('storage')}
         onOpenNewSandboxModal={() => setShowNewSandboxModal(true)}
         onOpenDiagnosticsModal={() => setShowDiagnosticsModal(true)}
         onOpenAuthModal={(mode) => setAuthModal({ isOpen: true, mode })}
@@ -54,7 +55,13 @@ function MainVaultApp() {
             onOpenAuthModal={(mode) => setAuthModal({ isOpen: true, mode })}
           />
         </main>
+      ) : activeView === 'storage' ? (
+        /* Full-Page Physical Storage & Real-World Inventory Hub Microservice */
+        <main className="flex-1 flex flex-col">
+          <PhysicalStorageHub />
+        </main>
       ) : (
+        /* Standard Vault Portfolio View */
         <>
           {/* Sandboxed Hobby Vault Tabs */}
           <SandboxTabs onOpenNewSandboxModal={() => setShowNewSandboxModal(true)} />

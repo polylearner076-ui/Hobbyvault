@@ -1,6 +1,6 @@
 {
   "name": "CollectorVault",
-  "description": "An Apple-designed portfolio tracker for collectible hobbies including Pokemon cards, TCGs, and Beyblade with sandboxed vaults, live market prices, and historical price charts.",
+  "description": "An Apple-designed portfolio tracker for collectible hobbies including Pokemon cards, TCGs, and Beyblade with sandboxed vaults, physical safe & binder inventory management, live market prices, and historical price charts.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

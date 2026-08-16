@@ -61,6 +61,20 @@ export interface StorageLocation {
   notes?: string;
 }
 
+export type StorageUnitType = 'safe' | 'binder' | 'slab_case' | 'box' | 'display' | 'shelf' | 'deposit_box' | 'drawer' | 'other';
+
+export interface StorageUnit {
+  id: string;
+  metaStorage: string; // e.g. "Master Fireproof Safe (Office)"
+  container: string;   // e.g. "Pelican 1500 Slab Case"
+  type?: StorageUnitType;
+  notes?: string;
+  capacity?: number;
+  createdAt?: string;
+  userId?: string;
+  isStarred?: boolean;
+}
+
 export interface AssetItem {
   id: string;
   sandboxId: string;
