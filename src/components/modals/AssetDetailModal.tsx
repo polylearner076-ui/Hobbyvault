@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AssetItem, Transaction, StorageLocation, AssetCopy, ItemCondition } from '../../types';
+import { AssetItem, Transaction, StorageLocation, AssetCopy, ItemCondition, FragilityLevel } from '../../types';
 import { useVault } from '../../context/VaultContext';
 import { InteractivePriceChart } from '../portfolio/InteractivePriceChart';
 import { lookupLiveMarketPrice } from '../../services/api';
@@ -11,6 +11,11 @@ import {
   calculateItemTotalCost,
   ensureCopiesForAsset,
 } from '../../utils/conditionUtils';
+import {
+  getAssetWeightGrams,
+  getAssetFragility,
+  formatWeight,
+} from '../../utils/storageAnalytics';
 import {
   X,
   Star,
@@ -37,6 +42,8 @@ import {
   FolderPlus,
   Copy,
   Sliders,
+  Scale,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface AssetDetailModalProps {
@@ -45,7 +52,17 @@ interface AssetDetailModalProps {
 }
 
 export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClose }) => {
-  const { sandboxes, updateItem, deleteItem, formatPrice, currencySymbol, convertPrice, storageUnits } = useVault();
+  const {
+    sandboxes,
+    updateItem,
+    deleteItem,
+    formatPrice,
+    currencySymbol,
+    convertPrice,
+    storageUnits,
+    setSelectedTag,
+    setSelectedCategory,
+  } = useVault();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(item.name);
@@ -77,6 +94,9 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
   const [editedContainer, setEditedContainer] = useState(item.storageLocation?.container || 'Pelican 1500 Slab Case');
   const [editedSlot, setEditedSlot] = useState(item.storageLocation?.slot || '');
   const [editedStorageNotes, setEditedStorageNotes] = useState(item.storageLocation?.notes || '');
+  const [editedWeightGrams, setEditedWeightGrams] = useState(item.weightGrams ? item.weightGrams.toString() : '');
+  const [editedFragility, setEditedFragility] = useState<FragilityLevel>(item.fragility || 'LOW');
+  const [editedFragilityNotes, setEditedFragilityNotes] = useState(item.fragilityNotes || '');
 
   const [isCheckingLivePrice, setIsCheckingLivePrice] = useState(false);
   const [livePriceStatus, setLivePriceStatus] = useState<string | null>(null);
@@ -213,6 +233,9 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
       sandboxId: editedSandboxId,
       notes: editedNotes,
       storageLocation,
+      weightGrams: editedWeightGrams ? parseFloat(editedWeightGrams) : undefined,
+      fragility: editedFragility,
+      fragilityNotes: editedFragilityNotes.trim() || undefined,
     };
 
     if (item.cardSpecs) {
@@ -465,15 +488,47 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
                   <span className="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20">
                     {item.condition.replace('_', ' ')}
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-black/[0.04] text-[#8E8E93] uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(item.category);
+                      onClose();
+                    }}
+                    title={`Filter vault by category: ${item.category}`}
+                    className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-black/[0.05] hover:bg-[#007AFF]/10 hover:text-[#007AFF] text-[#1C1C1E] uppercase tracking-wider transition-colors cursor-pointer border border-black/[0.04]"
+                  >
                     {item.category}
-                  </span>
+                  </button>
                   {item.quantity > 1 && (
                     <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold bg-black text-white">
                       x{item.quantity} in Vault
                     </span>
                   )}
                 </div>
+
+                {/* Assigned Tags Badges */}
+                {item.tags && item.tags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                    <span className="text-[10px] font-bold text-[#8E8E93] uppercase tracking-wider flex items-center gap-1">
+                      <Tag className="w-3 h-3 text-[#007AFF]" />
+                      <span>Tags:</span>
+                    </span>
+                    {item.tags.map((tag, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTag(tag);
+                          onClose();
+                        }}
+                        title={`Filter vault by #${tag}`}
+                        className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-medium bg-black/[0.04] hover:bg-[#007AFF] hover:text-white text-[#1C1C1E] border border-black/[0.06] transition-colors cursor-pointer"
+                      >
+                        <span>#{tag}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1C1C1E] tracking-tight leading-snug">
                   {item.name}
@@ -652,6 +707,52 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
                         value={editedStorageNotes}
                         onChange={(e) => setEditedStorageNotes(e.target.value)}
                         placeholder="e.g. UV sleeve + silica gel"
+                        className="w-full px-3 py-2 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:ring-2 focus:ring-[#007AFF]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-[#8E8E93] block mb-1 flex items-center gap-1">
+                        <Scale className="w-3 h-3 text-[#007AFF]" />
+                        <span>Weight (grams)</span>
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={editedWeightGrams}
+                        onChange={(e) => setEditedWeightGrams(e.target.value)}
+                        placeholder="e.g. 54 (Slab), 1.8 (Raw), 45 (Beyblade)"
+                        className="w-full px-3 py-2 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:ring-2 focus:ring-[#007AFF]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-[#8E8E93] block mb-1 flex items-center gap-1">
+                        <ShieldAlert className="w-3 h-3 text-amber-500" />
+                        <span>Preservation Fragility</span>
+                      </label>
+                      <select
+                        value={editedFragility}
+                        onChange={(e) => setEditedFragility(e.target.value as FragilityLevel)}
+                        className="w-full px-3 py-2 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:ring-2 focus:ring-[#007AFF]"
+                      >
+                        <option value="LOW">LOW (Durable / Hard Slabs / Metal)</option>
+                        <option value="MEDIUM">MEDIUM (Moderate / Boxed / Sleeved)</option>
+                        <option value="HIGH">HIGH (Delicate / Vintage Foils / High Grails)</option>
+                        <option value="CRITICAL">CRITICAL (Ultra-Fragile / Glass / Unprotected)</option>
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-bold text-[#8E8E93] block mb-1">
+                        Fragility & Handling Notes
+                      </label>
+                      <input
+                        type="text"
+                        value={editedFragilityNotes}
+                        onChange={(e) => setEditedFragilityNotes(e.target.value)}
+                        placeholder="e.g. Temperature-sensitive foil, handle only with cotton gloves"
                         className="w-full px-3 py-2 bg-white border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:ring-2 focus:ring-[#007AFF]"
                       />
                     </div>
@@ -1015,6 +1116,60 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
                   {item.storageLocation?.slot || 'Row 1, Slab #01'}
                 </div>
                 <div className="text-[10px] text-[#8E8E93]">Exact page or slot</div>
+              </div>
+            </div>
+
+            {/* Physical Preservation & Mass Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 bg-[#F8F9FB] rounded-2xl border border-black/[0.04] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-50 text-[#007AFF]">
+                    <Scale className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
+                      Physical Mass
+                    </div>
+                    <div className="text-xs font-bold text-[#1C1C1E]">
+                      {formatWeight(getAssetWeightGrams(item) * (item.quantity || 1)).display}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-[10px] text-[#8E8E93] bg-white px-2 py-0.5 rounded-md border border-black/[0.04]">
+                  {getAssetWeightGrams(item)}g / unit
+                </span>
+              </div>
+
+              <div className="p-3 bg-[#F8F9FB] rounded-2xl border border-black/[0.04] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+                    <ShieldAlert className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
+                      Preservation Fragility
+                    </div>
+                    <div className="text-xs font-bold text-[#1C1C1E] flex items-center gap-1.5">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          getAssetFragility(item) === 'CRITICAL'
+                            ? 'bg-red-500'
+                            : getAssetFragility(item) === 'HIGH'
+                            ? 'bg-amber-500'
+                            : getAssetFragility(item) === 'MEDIUM'
+                            ? 'bg-blue-500'
+                            : 'bg-emerald-500'
+                        }`}
+                      />
+                      <span>{getAssetFragility(item)} Risk</span>
+                    </div>
+                  </div>
+                </div>
+                {item.fragilityNotes && (
+                  <span className="text-[10px] text-[#8E8E93] truncate max-w-[120px]" title={item.fragilityNotes}>
+                    {item.fragilityNotes}
+                  </span>
+                )}
               </div>
             </div>
 

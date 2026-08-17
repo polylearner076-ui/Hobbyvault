@@ -2,6 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { useVault } from '../../context/VaultContext';
 import { AssetItem, StorageLocation, StorageUnit, StorageUnitType } from '../../types';
 import {
+  StorageDashboardOverview,
+} from './StorageDashboardOverview';
+import {
+  calculateContainerStats,
+  getAssetWeightGrams,
+  getAssetFragility,
+  formatWeight,
+  buildVaultStorageSummary,
+} from '../../utils/storageAnalytics';
+import {
   Box,
   Search,
   Plus,
@@ -32,6 +42,10 @@ import {
   Archive,
   FolderPlus,
   SlidersHorizontal,
+  Scale,
+  ShieldAlert,
+  Award,
+  BarChart3,
 } from 'lucide-react';
 
 export interface ContainerNode {
@@ -201,6 +215,11 @@ export const PhysicalStorageHub: React.FC = () => {
     });
 
     return { hierarchy, unallocated };
+  }, [items, storageUnits]);
+
+  // Calculate full vault storage analytics summary
+  const vaultSummary = useMemo(() => {
+    return buildVaultStorageSummary(items, storageUnits);
   }, [items, storageUnits]);
 
   // Summary Metrics
@@ -439,7 +458,7 @@ export const PhysicalStorageHub: React.FC = () => {
   return (
     <div id="physical-storage-microservice" className="flex-1 flex flex-col bg-[#F2F2F7] overflow-x-hidden">
       {/* Microservice Header Banner */}
-      <div className="bg-white border-b border-black/[0.08] sticky top-14 sm:top-16 z-30 shadow-xs">
+      <div className="bg-white border-b border-black/[0.08] shadow-xs">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             {/* Title & Stats */}
@@ -500,59 +519,119 @@ export const PhysicalStorageHub: React.FC = () => {
             </div>
           </div>
 
-          {/* Metric Overview Ribbon */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-black/[0.06]">
-            <div className="bg-[#F2F2F7]/80 rounded-xl p-2 sm:p-2.5 border border-black/[0.04]">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
-                Physical Stored Value
+          {/* Integrated Physical Metric Overview Ribbon */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 pt-3 border-t border-black/[0.06]">
+            {/* Metric 1: Stored Value */}
+            <div
+              onClick={() => {
+                setSelectedMetaStorage(null);
+                setSelectedContainer(null);
+                setFilterMode('all');
+              }}
+              className="bg-[#F2F2F7]/80 hover:bg-[#F2F2F7] cursor-pointer rounded-xl p-2 sm:p-2.5 border border-black/[0.04] flex flex-col justify-between transition-all group"
+              title="Click to view Storage Intelligence Overview"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] group-hover:text-[#007AFF] flex items-center justify-between transition-colors">
+                <span>Stored Physical Value</span>
+                <span className="text-[10px] font-semibold text-emerald-600">
+                  {totalItemsCount > 0 ? Math.round((totalAllocatedItems / totalItemsCount) * 100) : 0}% Allocated
+                </span>
               </div>
               <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5">
                 {formatPrice(totalPhysicalValueUSD)}
               </div>
-            </div>
-
-            <div className="bg-[#F2F2F7]/80 rounded-xl p-2 sm:p-2.5 border border-black/[0.04]">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
-                Allocated Cards
-              </div>
-              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 flex items-center gap-1">
-                <span>{totalAllocatedItems} / {totalItemsCount}</span>
-                <span className="text-[10px] sm:text-[11px] font-normal text-emerald-600">
-                  ({totalItemsCount > 0 ? Math.round((totalAllocatedItems / totalItemsCount) * 100) : 0}%)
-                </span>
+              <div className="text-[10px] text-[#8E8E93] mt-0.5 truncate">
+                {totalAllocatedItems} of {totalItemsCount} assets assigned
               </div>
             </div>
 
-            <div className="bg-[#F2F2F7]/80 rounded-xl p-2 sm:p-2.5 border border-black/[0.04]">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
-                Registered Units
-              </div>
-              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 truncate">
-                {totalRegisteredMetaLocations} Places • {totalRegisteredContainers} Units
-              </div>
-            </div>
-
+            {/* Metric 2: Total Vault Mass */}
             <div
               onClick={() => {
-                setFilterMode('unallocated');
                 setSelectedMetaStorage(null);
                 setSelectedContainer(null);
+                setFilterMode('all');
               }}
-              className={`rounded-xl p-2 sm:p-2.5 border transition-all cursor-pointer ${
+              className="bg-[#F2F2F7]/80 hover:bg-[#F2F2F7] cursor-pointer rounded-xl p-2 sm:p-2.5 border border-black/[0.04] flex flex-col justify-between transition-all group"
+              title="Click to view Storage Intelligence Overview"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] group-hover:text-[#007AFF] flex items-center justify-between transition-colors">
+                <span>Vault Mass Loadout</span>
+                <Scale className="w-3 h-3 text-[#007AFF]" />
+              </div>
+              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5">
+                {vaultSummary.totalVaultWeightFormatted.display}
+              </div>
+              <div className="text-[10px] text-[#8E8E93] mt-0.5 truncate">
+                {vaultSummary.totalContainers} containers • Tare + Payload
+              </div>
+            </div>
+
+            {/* Metric 3: Preservation Fragility Rating */}
+            <div
+              onClick={() => {
+                setSelectedMetaStorage(null);
+                setSelectedContainer(null);
+                setFilterMode('all');
+              }}
+              className="bg-[#F2F2F7]/80 hover:bg-[#F2F2F7] cursor-pointer rounded-xl p-2 sm:p-2.5 border border-black/[0.04] flex flex-col justify-between transition-all group"
+              title="Click to view Storage Intelligence Overview"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] group-hover:text-[#007AFF] flex items-center justify-between transition-colors">
+                <span>Preservation Index</span>
+                <span className={`w-2 h-2 rounded-full ${
+                  vaultSummary.overallFragilityScore >= 65
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                }`} />
+              </div>
+              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 flex items-center gap-1.5">
+                <span>{vaultSummary.overallFragilityScore}/100</span>
+                <span className="text-[11px] font-semibold text-[#8E8E93]">
+                  {vaultSummary.overallFragilityLabel}
+                </span>
+              </div>
+              <div className="text-[10px] text-[#8E8E93] mt-0.5 truncate">
+                {vaultSummary.overallFragilityBreakdown.critical > 0
+                  ? `${vaultSummary.overallFragilityBreakdown.critical} critical delicate items`
+                  : 'Optimal containment security'}
+              </div>
+            </div>
+
+            {/* Metric 4: Registered Units & Loose Items */}
+            <div
+              onClick={() => {
+                if (storageHierarchy.unallocated.length > 0) {
+                  setFilterMode('unallocated');
+                  setSelectedMetaStorage(null);
+                  setSelectedContainer(null);
+                } else {
+                  setSelectedMetaStorage(null);
+                  setSelectedContainer(null);
+                  setFilterMode('all');
+                }
+              }}
+              className={`rounded-xl p-2 sm:p-2.5 border transition-all flex flex-col justify-between cursor-pointer group ${
                 storageHierarchy.unallocated.length > 0
                   ? 'bg-amber-50/80 border-amber-200/80 hover:bg-amber-100/80'
-                  : 'bg-[#F2F2F7]/80 border-black/[0.04]'
+                  : 'bg-[#F2F2F7]/80 border-black/[0.04] hover:bg-[#F2F2F7]'
               }`}
+              title={storageHierarchy.unallocated.length > 0 ? 'Click to view loose unallocated assets' : 'Click to view Storage Intelligence Overview'}
             >
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] flex items-center justify-between">
-                <span>Unassigned Loose</span>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] group-hover:text-[#007AFF] flex items-center justify-between transition-colors">
+                <span>Registered Storage</span>
                 {storageHierarchy.unallocated.length > 0 && (
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
                 )}
               </div>
-              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 flex items-center gap-1">
-                <span>{storageHierarchy.unallocated.length} cards</span>
-                <span className="text-[10px] text-[#8E8E93] font-normal hidden sm:inline">➔ Assign</span>
+              <div className="text-sm sm:text-base font-bold text-[#1C1C1E] mt-0.5 truncate">
+                {totalRegisteredMetaLocations} Places • {totalRegisteredContainers} Units
+              </div>
+              <div className="text-[10px] text-[#8E8E93] mt-0.5 flex items-center justify-between">
+                <span>{storageHierarchy.unallocated.length === 0 ? '100% In Vaults' : `${storageHierarchy.unallocated.length} Loose Items`}</span>
+                <span className="text-[10px] font-medium text-[#007AFF] opacity-0 group-hover:opacity-100 transition-opacity">
+                  View ➔
+                </span>
               </div>
             </div>
           </div>
@@ -641,7 +720,7 @@ export const PhysicalStorageHub: React.FC = () => {
           </div>
 
           {/* Hierarchy Tree */}
-          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-xs overflow-hidden flex flex-col max-h-[340px] lg:max-h-[calc(100vh-280px)] overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-xs overflow-hidden flex flex-col">
             <div className="p-3 border-b border-black/[0.06] bg-[#F2F2F7]/50 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#8E8E93]">
                 Physical Locations & Units
@@ -656,6 +735,27 @@ export const PhysicalStorageHub: React.FC = () => {
             </div>
 
             <div className="p-2 space-y-1.5">
+              {/* Storage Intelligence Quick Switcher */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedMetaStorage(null);
+                  setSelectedContainer(null);
+                  setFilterMode('all');
+                }}
+                className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                  !selectedMetaStorage && !selectedContainer && filterMode === 'all'
+                    ? 'bg-[#007AFF] text-white border-[#007AFF] shadow-xs'
+                    : 'bg-[#F2F2F7]/60 text-[#1C1C1E] border-black/[0.06] hover:bg-[#F2F2F7]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <BarChart3 className={`w-4 h-4 ${!selectedMetaStorage && !selectedContainer && filterMode === 'all' ? 'text-white' : 'text-[#007AFF]'}`} />
+                  <span>Storage Intelligence Overview</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 opacity-70" />
+              </button>
+
               {filteredMetaEntries.length === 0 ? (
                 <div className="p-6 text-center text-xs text-[#8E8E93]">
                   No storage locations match your filter.
@@ -819,8 +919,25 @@ export const PhysicalStorageHub: React.FC = () => {
           {filterMode === 'unallocated' ? (
             /* Unallocated Loose Cards View */
             <div className="bg-white rounded-2xl border border-black/[0.06] shadow-xs p-6 flex-1">
-              <div className="flex items-center justify-between pb-4 border-b border-black/[0.06]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-black/[0.06]">
                 <div>
+                  <div className="flex items-center gap-1.5 text-xs text-[#8E8E93] mb-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMetaStorage(null);
+                        setSelectedContainer(null);
+                        setFilterMode('all');
+                      }}
+                      className="font-semibold text-[#007AFF] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      <span>Storage Intelligence</span>
+                    </button>
+                    <ChevronRight className="w-3 h-3 text-[#8E8E93]" />
+                    <span className="font-bold text-[#1C1C1E]">Unallocated Loose Items</span>
+                  </div>
+
                   <h2 className="text-base font-bold text-[#1C1C1E] flex items-center gap-2">
                     <span>Unallocated Collectibles</span>
                     <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
@@ -831,6 +948,19 @@ export const PhysicalStorageHub: React.FC = () => {
                     These collectible assets are in your portfolio but have not been assigned to a physical safe, binder, or slab case.
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMetaStorage(null);
+                    setSelectedContainer(null);
+                    setFilterMode('all');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F2F2F7] hover:bg-[#E5E5EA] text-[#1C1C1E] border border-black/[0.06] text-xs font-semibold transition-colors shadow-2xs self-start sm:self-auto cursor-pointer"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-[#007AFF]" />
+                  <span>Storage Intelligence</span>
+                </button>
               </div>
 
               {storageHierarchy.unallocated.length === 0 ? (
@@ -890,9 +1020,28 @@ export const PhysicalStorageHub: React.FC = () => {
               {/* Container Header */}
               <div className="p-5 border-b border-black/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2 text-xs text-[#8E8E93]">
-                    <span className="font-medium">{selectedMetaStorage}</span>
-                    <ChevronRight className="w-3 h-3" />
+                  <div className="flex items-center gap-1.5 text-xs text-[#8E8E93] flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMetaStorage(null);
+                        setSelectedContainer(null);
+                        setFilterMode('all');
+                      }}
+                      className="font-semibold text-[#007AFF] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      <span>Storage Intelligence</span>
+                    </button>
+                    <ChevronRight className="w-3 h-3 text-[#8E8E93]" />
+                    <button
+                      type="button"
+                      onClick={() => setSelectedContainer(null)}
+                      className="font-medium hover:text-[#007AFF] hover:underline cursor-pointer"
+                    >
+                      {selectedMetaStorage}
+                    </button>
+                    <ChevronRight className="w-3 h-3 text-[#8E8E93]" />
                     <span className="font-bold text-[#1C1C1E]">{selectedContainer}</span>
                   </div>
 
@@ -936,6 +1085,20 @@ export const PhysicalStorageHub: React.FC = () => {
 
                 {/* Right Container Controls */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMetaStorage(null);
+                      setSelectedContainer(null);
+                      setFilterMode('all');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F2F2F7] hover:bg-[#E5E5EA] text-[#1C1C1E] border border-black/[0.06] text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+                    title="Return to Storage Intelligence Overview"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 text-[#007AFF]" />
+                    <span>Intelligence Dashboard</span>
+                  </button>
+
                   <button
                     onClick={() => setShowAssignLooseModal(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition-colors shadow-xs"
@@ -1017,7 +1180,87 @@ export const PhysicalStorageHub: React.FC = () => {
               )}
 
               {/* Container Content Grid */}
-              <div className="p-5 flex-1 overflow-y-auto">
+              <div className="p-5 flex-1 space-y-4">
+                {/* Mini Container Analytics Strip */}
+                {(() => {
+                  const contStats = calculateContainerStats(
+                    selectedContainer,
+                    selectedMetaStorage,
+                    currentContainerData.items,
+                    storageUnits
+                  );
+
+                  return (
+                    <div className="bg-[#F2F2F7]/50 rounded-2xl border border-black/[0.06] p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      {/* Stat 1: Total Container Weight */}
+                      <div className="bg-white rounded-xl p-2.5 border border-black/[0.04]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] flex items-center gap-1">
+                          <Scale className="w-3 h-3 text-[#007AFF]" />
+                          <span>Container Mass</span>
+                        </div>
+                        <div className="text-xs font-bold text-[#1C1C1E] mt-1">
+                          {contStats.weightFormatted.display}
+                        </div>
+                        <div className="text-[10px] text-[#8E8E93] mt-0.5">
+                          Items: {Math.round(contStats.itemsWeightGrams)}g • Tare: {Math.round(contStats.tareWeightGrams)}g
+                        </div>
+                      </div>
+
+                      {/* Stat 2: Fragility Risk Score */}
+                      <div className="bg-white rounded-xl p-2.5 border border-black/[0.04]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] flex items-center gap-1">
+                          <ShieldAlert className="w-3 h-3 text-amber-500" />
+                          <span>Fragility Rating</span>
+                        </div>
+                        <div className="text-xs font-bold flex items-center gap-1.5 mt-1">
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: contStats.fragilityColor }}
+                          />
+                          <span className="text-[#1C1C1E]">{contStats.fragilityLabel}</span>
+                        </div>
+                        <div className="text-[10px] text-[#8E8E93] mt-0.5">
+                          Index: {contStats.fragilityScore}/100
+                        </div>
+                      </div>
+
+                      {/* Stat 3: Valuation & Assets */}
+                      <div className="bg-white rounded-xl p-2.5 border border-black/[0.04]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
+                          Total Valuation
+                        </div>
+                        <div className="text-xs font-bold text-[#1C1C1E] mt-1">
+                          {formatPrice(contStats.totalValueUSD)}
+                        </div>
+                        <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                          {currentContainerData.items.length} unique assets
+                        </div>
+                      </div>
+
+                      {/* Stat 4: Category Distribution */}
+                      <div className="bg-white rounded-xl p-2.5 border border-black/[0.04]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
+                          Category Split
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 mt-1">
+                          {contStats.categoryDistribution.slice(0, 2).map((cat) => (
+                            <span
+                              key={cat.category}
+                              className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/[0.03] text-[#1C1C1E] flex items-center gap-1"
+                            >
+                              <span
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: cat.color }}
+                              />
+                              <span className="capitalize">{cat.category}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {currentContainerData.items.length === 0 ? (
                   <div className="py-20 text-center flex flex-col items-center">
                     <div className="w-14 h-14 rounded-2xl bg-zinc-100 text-zinc-400 flex items-center justify-center mb-3">
@@ -1057,6 +1300,17 @@ export const PhysicalStorageHub: React.FC = () => {
                     {filteredActiveItems.map((item) => {
                       const isSelected = selectedItemIds.includes(item.id);
                       const gain = item.currentPriceUSD - item.purchasePriceUSD;
+                      const itemWeight = getAssetWeightGrams(item);
+                      const itemFragility = getAssetFragility(item);
+
+                      const fragilityBadgeStyle =
+                        itemFragility === 'CRITICAL'
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : itemFragility === 'HIGH'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : itemFragility === 'MEDIUM'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
                       return (
                         <div
@@ -1128,12 +1382,23 @@ export const PhysicalStorageHub: React.FC = () => {
                               </div>
 
                               {/* Slot / Page Position */}
-                              <div className="mt-2 flex items-center gap-1.5">
+                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
                                   Slot:
                                 </span>
                                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-900 border border-zinc-200">
                                   {item.storageLocation?.slot || 'Position #1'}
+                                </span>
+                              </div>
+
+                              {/* Physical attributes tags: Weight & Fragility */}
+                              <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200 flex items-center gap-1">
+                                  <Scale className="w-2.5 h-2.5 text-[#8E8E93]" />
+                                  <span>{formatWeight(itemWeight * (item.quantity || 1)).display}</span>
+                                </span>
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${fragilityBadgeStyle}`}>
+                                  {itemFragility} Fragility
                                 </span>
                               </div>
                             </div>
@@ -1184,8 +1449,25 @@ export const PhysicalStorageHub: React.FC = () => {
           ) : selectedMetaStorage && currentMetaData ? (
             /* Selected Meta Location Overview */
             <div className="bg-white rounded-2xl border border-black/[0.06] shadow-xs p-6 flex-1 flex flex-col">
-              <div className="flex items-center justify-between pb-4 border-b border-black/[0.06]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-black/[0.06]">
                 <div>
+                  <div className="flex items-center gap-1.5 text-xs text-[#8E8E93] mb-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMetaStorage(null);
+                        setSelectedContainer(null);
+                        setFilterMode('all');
+                      }}
+                      className="font-semibold text-[#007AFF] hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      <span>Storage Intelligence</span>
+                    </button>
+                    <ChevronRight className="w-3 h-3 text-[#8E8E93]" />
+                    <span className="font-bold text-[#1C1C1E]">{selectedMetaStorage}</span>
+                  </div>
+
                   <div className="flex items-center gap-2">
                     <h2 className="text-xl font-bold text-[#1C1C1E]">{selectedMetaStorage}</h2>
                     {isLocationStarred(selectedMetaStorage) && (
@@ -1200,7 +1482,21 @@ export const PhysicalStorageHub: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMetaStorage(null);
+                      setSelectedContainer(null);
+                      setFilterMode('all');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F2F2F7] hover:bg-[#E5E5EA] text-[#1C1C1E] border border-black/[0.06] text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+                    title="Return to Storage Intelligence Overview"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 text-[#007AFF]" />
+                    <span>Dashboard Overview</span>
+                  </button>
+
                   <button
                     onClick={() => toggleStarLocation(selectedMetaStorage)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-black/[0.08] text-xs font-semibold hover:bg-black/[0.04] transition-colors"
@@ -1233,71 +1529,62 @@ export const PhysicalStorageHub: React.FC = () => {
               {/* Container Tiles */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
                 {(Object.entries(currentMetaData.containers) as [string, ContainerNode][]).map(
-                  ([contName, cData]) => (
-                    <div
-                      key={contName}
-                      onClick={() => setSelectedContainer(contName)}
-                      className="bg-[#F2F2F7]/50 hover:bg-[#F2F2F7] rounded-2xl border border-black/[0.06] p-4 transition-all cursor-pointer hover:shadow-md flex flex-col justify-between gap-3"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-xl bg-white text-[#007AFF] shadow-xs">
-                            {getContainerIcon(cData.unitConfig?.type)}
+                  ([contName, cData]) => {
+                    const cStats = calculateContainerStats(contName, selectedMetaStorage, cData.items, storageUnits);
+                    return (
+                      <div
+                        key={contName}
+                        onClick={() => setSelectedContainer(contName)}
+                        className="bg-[#F2F2F7]/50 hover:bg-[#F2F2F7] rounded-2xl border border-black/[0.06] p-4 transition-all cursor-pointer hover:shadow-md flex flex-col justify-between gap-3"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-2 rounded-xl bg-white text-[#007AFF] shadow-xs">
+                              {getContainerIcon(cData.unitConfig?.type)}
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold text-[#1C1C1E]">{contName}</h3>
+                              <span className="text-[10px] text-[#8E8E93] capitalize">
+                                {cData.unitConfig?.type || 'Container'}
+                              </span>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="text-sm font-bold text-[#1C1C1E]">{contName}</h3>
-                            <span className="text-[10px] text-[#8E8E93] capitalize">
-                              {cData.unitConfig?.type || 'Container'}
-                            </span>
-                          </div>
+
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white border border-black/[0.06]">
+                            {cData.items.length} items
+                          </span>
                         </div>
 
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-white border border-black/[0.06]">
-                          {cData.items.length} items
-                        </span>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-2 border-t border-black/[0.04]">
+                          <div>
+                            <span className="text-[#8E8E93]">Weight:</span>
+                            <div className="font-bold text-[#1C1C1E]">{cStats.weightFormatted.display}</div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[#8E8E93]">Total Value:</span>
+                            <div className="font-bold text-[#1C1C1E]">
+                              {formatPrice(cData.totalValueUSD)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-
-                      <div className="pt-2 border-t border-black/[0.04] flex items-center justify-between text-xs">
-                        <span className="text-[#8E8E93]">Total Value:</span>
-                        <span className="font-bold text-[#1C1C1E]">
-                          {formatPrice(cData.totalValueUSD)}
-                        </span>
-                      </div>
-                    </div>
-                  )
+                    );
+                  }
                 )}
               </div>
             </div>
           ) : (
-            /* Welcome / Overview Screen */
-            <div className="bg-white rounded-2xl border border-black/[0.06] shadow-xs p-8 flex-1 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 rounded-3xl bg-blue-50 text-[#007AFF] flex items-center justify-center mb-4 shadow-sm">
-                <Box className="w-8 h-8" />
-              </div>
-              <h2 className="text-xl font-bold text-[#1C1C1E] tracking-tight">
-                Select a Physical Storage Location
-              </h2>
-              <p className="text-xs text-[#8E8E93] max-w-md mt-1.5 leading-relaxed">
-                Choose any safe, slab case, or binder from the sidebar to inspect collectible assets, transfer cards between containers, or manage your real-world vault.
-              </p>
-
-              {/* Quick Pick Pills */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-6 max-w-xl">
-                {Object.keys(storageHierarchy.hierarchy).map((meta) => (
-                  <button
-                    key={meta}
-                    onClick={() => {
-                      setSelectedMetaStorage(meta);
-                      const firstCont = Object.keys(storageHierarchy.hierarchy[meta].containers)[0];
-                      setSelectedContainer(firstCont || null);
-                    }}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#F2F2F7] hover:bg-[#007AFF] hover:text-white text-[#1C1C1E] text-xs font-semibold transition-all shadow-xs"
-                  >
-                    {meta}
-                  </button>
-                ))}
-              </div>
-            </div>
+            /* Dashboard Stats Overview Screen */
+            <StorageDashboardOverview
+              onSelectContainer={(meta, cont) => {
+                setSelectedMetaStorage(meta);
+                setSelectedContainer(cont);
+              }}
+              onSelectMetaStorage={(meta) => {
+                setSelectedMetaStorage(meta);
+                setSelectedContainer(null);
+              }}
+            />
           )}
         </div>
       </div>

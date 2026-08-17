@@ -5,6 +5,7 @@ import {
   Star,
   MapPin,
   Layers,
+  Tag,
 } from 'lucide-react';
 import {
   getConditionMeta,
@@ -19,7 +20,14 @@ interface AssetCardProps {
 }
 
 export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
-  const { formatPrice, updateItem } = useVault();
+  const {
+    formatPrice,
+    updateItem,
+    selectedTag,
+    setSelectedTag,
+    selectedCategory,
+    setSelectedCategory,
+  } = useVault();
 
   const totalValue = calculateItemTotalValuation(item);
   const totalCost = calculateItemTotalCost(item);
@@ -183,6 +191,38 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
         <div className="text-xs text-[#8E8E93] mt-1 line-clamp-1 font-medium">
           {item.cardSpecs?.setName || (item.beybladeSpecs ? `${item.beybladeSpecs.brand} • ${item.beybladeSpecs.generation}` : (item.tags?.[0] || 'Collectible Asset'))}
         </div>
+
+        {/* Assigned Tags List - Clickable for Instant Tag Filtering */}
+        {item.tags && item.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1">
+            {item.tags.slice(0, 3).map((t, idx) => {
+              const isTagActive = selectedTag?.toLowerCase() === t.toLowerCase();
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedTag(isTagActive ? null : t);
+                  }}
+                  title={`Filter by tag: #${t}`}
+                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
+                    isTagActive
+                      ? 'bg-[#007AFF] text-white shadow-2xs'
+                      : 'bg-black/[0.04] text-[#8E8E93] hover:text-[#007AFF] hover:bg-[#007AFF]/10 border border-black/[0.04]'
+                  }`}
+                >
+                  <span>#{t}</span>
+                </button>
+              );
+            })}
+            {item.tags.length > 3 && (
+              <span className="text-[9px] text-[#8E8E93] font-medium">
+                +{item.tags.length - 3} more
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Physical Storage Location Breadcrumb */}
         {item.storageLocation?.container && (

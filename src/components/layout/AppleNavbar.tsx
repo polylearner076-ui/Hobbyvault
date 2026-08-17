@@ -24,7 +24,7 @@ import { UserMenu } from './UserMenu';
 
 interface AppleNavbarProps {
   onOpenAddModal: () => void;
-  onOpenScanModal: () => void;
+  onOpenScanModal?: () => void;
   onOpenAnalyticsModal: () => void;
   onOpenAgentModal?: () => void;
   onOpenStorageModal: () => void;
@@ -35,7 +35,6 @@ interface AppleNavbarProps {
 
 export const AppleNavbar: React.FC<AppleNavbarProps> = ({
   onOpenAddModal,
-  onOpenScanModal,
   onOpenAnalyticsModal,
   onOpenAgentModal,
   onOpenStorageModal,
@@ -336,18 +335,6 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
                   <span className="hidden sm:inline">Meta-Agent</span>
                 </button>
               )}
-
-              {/* AI Scanner Trigger */}
-              <button
-                type="button"
-                id="open-scan-modal-btn"
-                onClick={onOpenScanModal}
-                className="flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200/80 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0 whitespace-nowrap"
-                title="AI Card & Beyblade Scanner"
-              >
-                <ScanLine className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-indigo-500 shrink-0" />
-                <span className="hidden sm:inline">AI Scanner</span>
-              </button>
 
               {/* Analytics / Portfolio Insights */}
               <button

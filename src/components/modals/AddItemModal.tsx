@@ -19,8 +19,10 @@ import {
   Trash2,
   Copy,
   Info,
+  Scale,
+  ShieldAlert,
 } from 'lucide-react';
-import { HobbyType, ItemCondition, AssetCopy } from '../../types';
+import { HobbyType, ItemCondition, AssetCopy, FragilityLevel } from '../../types';
 import { CONDITION_METAS, getConditionMeta, calculateCopyValue } from '../../utils/conditionUtils';
 import { CATEGORY_GROUPS, getAllCategoryMetas } from '../../utils/categoryUtils';
 
@@ -108,6 +110,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   const [container, setContainer] = useState('VaultX 12-Pocket Premium Zip Binder');
   const [slot, setSlot] = useState('Page 1, Slot 1');
   const [storageNotes, setStorageNotes] = useState('');
+  const [weightGrams, setWeightGrams] = useState('');
+  const [fragility, setFragility] = useState<FragilityLevel>('LOW');
+  const [fragilityNotes, setFragilityNotes] = useState('');
 
   const [isFetchingPrice, setIsFetchingPrice] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<string | null>(null);
@@ -463,6 +468,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
         slot: slot.trim() || undefined,
         notes: storageNotes.trim() || undefined,
       },
+      weightGrams: weightGrams ? parseFloat(weightGrams) : undefined,
+      fragility,
+      fragilityNotes: fragilityNotes.trim() || undefined,
       transactions: [
         {
           id: `tx-${Date.now()}`,
@@ -1159,6 +1167,55 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                     placeholder="e.g. Page 1, Slot 1"
                     value={slot}
                     onChange={(e) => setSlot(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs focus:outline-none focus:border-[#007AFF]"
+                  />
+                </div>
+              </div>
+
+              {/* Physical Weight & Fragility Ratings */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 border-t border-purple-500/10">
+                <div>
+                  <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold flex items-center gap-1">
+                    <Scale className="w-3 h-3 text-[#007AFF]" />
+                    <span>Weight (grams)</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="e.g. 54 (Slab), 1.8 (Raw), 45 (Blade)"
+                    value={weightGrams}
+                    onChange={(e) => setWeightGrams(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs focus:outline-none focus:border-[#007AFF]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3 text-amber-500" />
+                    <span>Preservation Fragility</span>
+                  </label>
+                  <select
+                    value={fragility}
+                    onChange={(e) => setFragility(e.target.value as FragilityLevel)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs focus:outline-none focus:border-[#007AFF]"
+                  >
+                    <option value="LOW">LOW (Durable / Hard Slabs / Metal)</option>
+                    <option value="MEDIUM">MEDIUM (Moderate / Sleeved / Boxed)</option>
+                    <option value="HIGH">HIGH (Delicate / Vintage / High Grail)</option>
+                    <option value="CRITICAL">CRITICAL (Ultra-Fragile / Glass)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#8E8E93] block mb-1 font-semibold">
+                    Handling / Protection Notes
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. UV sleeve + silica gel"
+                    value={storageNotes}
+                    onChange={(e) => setStorageNotes(e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-white border border-black/[0.08] rounded-lg text-xs focus:outline-none focus:border-[#007AFF]"
                   />
                 </div>

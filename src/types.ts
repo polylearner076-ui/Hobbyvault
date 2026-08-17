@@ -142,6 +142,8 @@ export type ItemCondition =
   | 'USED' // Used / Battle-tested
   | 'USED_COMPLETE';
 
+export type FragilityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
 export interface AssetCopy {
   id: string;
   condition: ItemCondition;
@@ -156,6 +158,9 @@ export interface AssetCopy {
   serialNumber?: string;
   notes?: string;
   isFavorite?: boolean;
+  weightGrams?: number; // Physical weight in grams
+  fragility?: FragilityLevel; // Fragility sensitivity rating
+  fragilityNotes?: string;
 }
 
 export interface PriceHistoryPoint {
@@ -217,6 +222,7 @@ export interface StorageUnit {
   type?: StorageUnitType;
   notes?: string;
   capacity?: number;
+  tareWeightGrams?: number; // Empty container weight in grams
   createdAt?: string;
   userId?: string;
   isStarred?: boolean;
@@ -244,6 +250,9 @@ export interface AssetItem {
   cardSpecs?: CardSpecs;
   transactions: Transaction[];
   storageLocation?: StorageLocation;
+  weightGrams?: number; // Physical weight in grams (e.g. 1.8g raw card, 55g PSA slab, 45g Beyblade, 750g box)
+  fragility?: FragilityLevel; // Preservation fragility rating (LOW, MEDIUM, HIGH, CRITICAL)
+  fragilityNotes?: string;
   lastUpdated: string;
   isFavorite?: boolean;
   marketSource?: string; // e.g. 'TCGPlayer / PriceCharting / Takara Tomy Live'

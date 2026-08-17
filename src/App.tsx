@@ -7,7 +7,6 @@ import { PortfolioHeader } from './components/portfolio/PortfolioHeader';
 import { AssetGrid } from './components/portfolio/AssetGrid';
 import { AssetDetailModal } from './components/modals/AssetDetailModal';
 import { AddItemModal } from './components/modals/AddItemModal';
-import { ScanModal } from './components/modals/ScanModal';
 import { AnalyticsModal } from './components/modals/AnalyticsModal';
 import { CustomSandboxModal } from './components/modals/CustomSandboxModal';
 import { ApiDiagnosticsModal } from './components/modals/ApiDiagnosticsModal';
@@ -24,7 +23,6 @@ function MainVaultApp() {
   const { selectedItem, setSelectedItem, activeView, setActiveView } = useVault();
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showScanModal, setShowScanModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [showStorageModal, setShowStorageModal] = useState(false);
@@ -43,7 +41,6 @@ function MainVaultApp() {
       {/* Top Apple HIG Translucent Header */}
       <AppleNavbar
         onOpenAddModal={() => setShowAddModal(true)}
-        onOpenScanModal={() => setShowScanModal(true)}
         onOpenAnalyticsModal={() => setShowAnalyticsModal(true)}
         onOpenAgentModal={() => setShowAgentModal(true)}
         onOpenStorageModal={() => setActiveView('storage')}
@@ -78,7 +75,6 @@ function MainVaultApp() {
             <AssetGrid
               onSelectItem={(item: AssetItem) => setSelectedItem(item)}
               onOpenAddModal={() => setShowAddModal(true)}
-              onOpenScanModal={() => setShowScanModal(true)}
             />
           </main>
         </>
@@ -94,10 +90,6 @@ function MainVaultApp() {
 
       {showAddModal && (
         <AddItemModal onClose={() => setShowAddModal(false)} />
-      )}
-
-      {showScanModal && (
-        <ScanModal onClose={() => setShowScanModal(false)} />
       )}
 
       {showAnalyticsModal && (

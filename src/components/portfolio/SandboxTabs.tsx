@@ -51,6 +51,15 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
 
   const allStats = getSandboxStats('all');
 
+  // Filter out any legacy watches tabs
+  const displaySandboxes = sandboxes.filter(
+    (sb) =>
+      sb.id !== 'sandbox-watches' &&
+      sb.id !== 'watches' &&
+      sb.type !== 'watches' &&
+      sb.name.toLowerCase() !== 'watches'
+  );
+
   return (
     <div className="w-full overflow-x-auto no-scrollbar py-2 border-b border-black/[0.06] bg-[#F2F2F7]">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex items-center gap-1.5 sm:gap-2 min-w-max">
@@ -80,7 +89,7 @@ export const SandboxTabs: React.FC<SandboxTabsProps> = ({ onOpenNewSandboxModal 
         </button>
 
         {/* Individual Sandboxes */}
-        {sandboxes.map((sb) => {
+        {displaySandboxes.map((sb) => {
           const stats = getSandboxStats(sb.id);
           const isActive = activeSandboxId === sb.id;
 

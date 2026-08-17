@@ -88,6 +88,15 @@ interface VaultContextType {
   setAutoSyncIntervalSeconds: (secs: number) => void;
   nextSyncCountdown: number;
 
+  // Category & Tag Filter States
+  selectedCategory: string;
+  setSelectedCategory: (category: string) => void;
+  selectedTag: string | null;
+  setSelectedTag: (tag: string | null) => void;
+  availableTags: { tag: string; count: number }[];
+  availableCategories: { id: string; label: string; count: number }[];
+  clearAllFilters: () => void;
+
   // Active Top-Level Microservice View
   activeView: 'portfolio' | 'storage';
   setActiveView: (view: 'portfolio' | 'storage') => void;
@@ -232,6 +241,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [timeRange, setTimeRange] = useState<TimeRange>('1M');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedCondition, setSelectedCondition] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'value_desc' | 'value_asc' | 'gain_desc' | 'gain_asc' | 'name_asc' | 'recent'>('value_desc');
   const [selectedItem, setSelectedItem] = useState<AssetItem | null>(null);
@@ -668,12 +679,31 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         if (fetchedSandboxes.length > 0) {
-          setSandboxes(fetchedSandboxes);
+          const validSandboxes = fetchedSandboxes.filter(
+            (s) =>
+              s.id !== 'sandbox-watches' &&
+              s.id !== 'watches' &&
+              s.name.toLowerCase() !== 'watches' &&
+              s.type !== 'watches'
+          );
+          setSandboxes(validSandboxes.length > 0 ? validSandboxes : INITIAL_SANDBOXES);
+
+          // Clean up watches sandboxes from database if any existed
+          const watchesToDelete = fetchedSandboxes.filter(
+            (s) =>
+              s.id === 'sandbox-watches' ||
+              s.id === 'watches' ||
+              s.name.toLowerCase() === 'watches' ||
+              s.type === 'watches'
+          );
+          for (const ws of watchesToDelete) {
+            deleteSandboxFromDatabase(ws.id, activeUserId).catch(() => {});
+          }
         } else {
           setSandboxes(INITIAL_SANDBOXES);
         }
       } catch (err) {
-        console.warn('Failed to load user data from PostgreSQL database:', err);
+        console.warn('Failed to load user data from database:', err);
       }
     }
 
@@ -712,6 +742,79 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }).format(converted);
   };
 
+  // Helper to clear all active filters
+  const clearAllFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedCategory('ALL');
+    setSelectedTag(null);
+    setSelectedCondition('ALL');
+    setAgentActiveFilter(null);
+  }, []);
+
+  // Dynamically computed list of unique assigned tags with asset counts
+  const availableTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    const scopedItems = activeSandboxId === 'all'
+      ? items
+      : items.filter((i) => i.sandboxId === activeSandboxId);
+
+    scopedItems.forEach((item) => {
+      if (Array.isArray(item.tags)) {
+        item.tags.forEach((tag) => {
+          if (tag && typeof tag === 'string' && tag.trim()) {
+            const clean = tag.trim();
+            counts.set(clean, (counts.get(clean) || 0) + 1);
+          }
+        });
+      }
+    });
+
+    return Array.from(counts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+  }, [items, activeSandboxId]);
+
+  // Dynamically computed list of unique asset categories with item counts
+  const availableCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    const scopedItems = activeSandboxId === 'all'
+      ? items
+      : items.filter((i) => i.sandboxId === activeSandboxId);
+
+    scopedItems.forEach((item) => {
+      const cat = (item.category || 'other').toLowerCase();
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+
+    const categoryLabels: Record<string, string> = {
+      pokemon: 'Pokémon TCG',
+      beyblade: 'Beyblade',
+      mtg: 'Magic: The Gathering',
+      onepiece: 'One Piece Card Game',
+      gaming: 'Retro & Modern Games',
+      yugioh: 'Yu-Gi-Oh! TCG',
+      lorcana: 'Disney Lorcana',
+      sports_cards: 'Sports Cards',
+      tcg_general: 'Trading Cards',
+      gunpla: 'Gunpla & Models',
+      action_figures: 'Action Figures',
+      lego: 'LEGO & Bricks',
+      diecast: 'Diecast & Cars',
+      consoles: 'Consoles & Hardware',
+      comics_manga: 'Comics & Manga',
+      anime_merch: 'Anime Collectibles',
+      art_memorabilia: 'Memorabilia & Art',
+    };
+
+    return Array.from(counts.entries())
+      .map(([id, count]) => ({
+        id,
+        label: categoryLabels[id] || id.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+        count,
+      }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [items, activeSandboxId]);
+
   // Filtered and sorted items based on current active sandbox & controls
   const filteredItems = useMemo(() => {
     let result = [...items];
@@ -726,17 +829,81 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // Filter by search query
+    // Filter by Asset Type / Category (flexible includes)
+    if (selectedCategory !== 'ALL') {
+      const catLower = selectedCategory.toLowerCase();
+      result = result.filter((item) => {
+        const itemCat = (item.category || '').toLowerCase();
+        const matchesCat = itemCat.includes(catLower) || catLower.includes(itemCat);
+        const matchesTag = item.tags?.some((t) => t.toLowerCase().includes(catLower) || catLower.includes(t.toLowerCase()));
+        const matchesGame = item.cardSpecs?.game?.toLowerCase().includes(catLower);
+        const matchesName = item.name.toLowerCase().includes(catLower);
+        return matchesCat || matchesTag || matchesGame || matchesName;
+      });
+    }
+
+    // Filter by Assigned Tag (flexible includes)
+    if (selectedTag) {
+      const tagLower = selectedTag.toLowerCase().replace(/^#/, '');
+      result = result.filter((item) => {
+        const matchesTag = item.tags?.some((t) => t.toLowerCase().includes(tagLower) || tagLower.includes(t.toLowerCase()));
+        const matchesCategory = (item.category || '').toLowerCase().includes(tagLower);
+        const matchesSetName = item.cardSpecs?.setName?.toLowerCase().includes(tagLower);
+        const matchesRarity = item.cardSpecs?.rarity?.toLowerCase().includes(tagLower);
+        const matchesBladeType = item.beybladeSpecs?.type?.toLowerCase().includes(tagLower);
+        const matchesBladeGen = item.beybladeSpecs?.generation?.toLowerCase().includes(tagLower);
+        const matchesName = item.name.toLowerCase().includes(tagLower);
+        return matchesTag || matchesCategory || matchesSetName || matchesRarity || matchesBladeType || matchesBladeGen || matchesName;
+      });
+    }
+
+    // Filter by search query according to includes (multi-token substring match across all attributes)
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (item) =>
-          item.name.toLowerCase().includes(q) ||
-          item.tags?.some((t) => t.toLowerCase().includes(q)) ||
-          item.cardSpecs?.setName?.toLowerCase().includes(q) ||
-          item.beybladeSpecs?.blade?.toLowerCase().includes(q) ||
-          item.beybladeSpecs?.generation?.toLowerCase().includes(q)
-      );
+      const queryClean = searchQuery.toLowerCase().trim();
+      const tokens = queryClean.split(/\s+/).filter(Boolean);
+
+      result = result.filter((item) => {
+        // Collect all textual descriptors of this asset into a searchable string corpus
+        const searchableFields: (string | undefined | null)[] = [
+          item.name,
+          item.category,
+          ...(item.tags || []),
+          item.cardSpecs?.setName,
+          item.cardSpecs?.game,
+          item.cardSpecs?.cardNumber,
+          item.cardSpecs?.rarity,
+          item.cardSpecs?.illustrator,
+          item.cardSpecs?.language,
+          item.cardSpecs?.variant,
+          item.beybladeSpecs?.blade,
+          item.beybladeSpecs?.ratchet,
+          item.beybladeSpecs?.bit,
+          item.beybladeSpecs?.brand,
+          item.beybladeSpecs?.generation,
+          item.beybladeSpecs?.type,
+          item.beybladeSpecs?.code,
+          item.beybladeSpecs?.spinDirection,
+          item.storageLocation?.metaStorage,
+          item.storageLocation?.container,
+          item.storageLocation?.slot,
+          item.condition,
+          item.grading?.company,
+          item.grading?.grade ? `${item.grading.company || ''} ${item.grading.grade}` : '',
+          item.grading?.certNumber,
+          item.grading?.subgrades?.centering ? `Centering ${item.grading.subgrades.centering}` : '',
+          item.notes,
+          item.customAttributes ? Object.values(item.customAttributes).join(' ') : '',
+        ];
+
+        const corpus = searchableFields.filter(Boolean).join(' ').toLowerCase();
+
+        // Check if query is directly included as a phrase OR all individual tokens are included
+        if (corpus.includes(queryClean)) {
+          return true;
+        }
+
+        return tokens.every((tok) => corpus.includes(tok));
+      });
     }
 
     // Filter by agent active filter if set
@@ -746,7 +913,11 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Filter by condition
     if (selectedCondition !== 'ALL') {
-      result = result.filter((item) => item.condition === selectedCondition);
+      result = result.filter((item) => {
+        if (item.condition === selectedCondition) return true;
+        if (item.copies && item.copies.some((c) => c.condition === selectedCondition)) return true;
+        return false;
+      });
     }
 
     // Sort
@@ -770,14 +941,14 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         case 'name_asc':
           return a.name.localeCompare(b.name);
         case 'recent':
-          return new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime();
+          return new Date(b.purchaseDate || b.lastUpdated).getTime() - new Date(a.purchaseDate || a.lastUpdated).getTime();
         default:
           return 0;
       }
     });
 
     return result;
-  }, [items, activeSandboxId, searchQuery, selectedCondition, sortBy, agentActiveFilter]);
+  }, [items, activeSandboxId, sandboxes, selectedCategory, selectedTag, searchQuery, agentActiveFilter, selectedCondition, sortBy]);
 
   // Aggregate Metrics for current Sandbox or All
   const {
@@ -1254,6 +1425,13 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         agentActiveFilter,
         setAgentActiveFilter,
         clearAgentActiveFilter,
+        selectedCategory,
+        setSelectedCategory,
+        selectedTag,
+        setSelectedTag,
+        availableTags,
+        availableCategories,
+        clearAllFilters,
         agentBackgroundTasks,
         startAgentBackgroundTask,
         dismissBackgroundTask,
