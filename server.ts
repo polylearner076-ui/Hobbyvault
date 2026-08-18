@@ -16,7 +16,7 @@ import { seedSupabaseDatabase } from './src/db/seed.ts';
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
@@ -965,4 +965,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.VERCEL !== '1') {
+  startServer();
+}
+
+export default app;
