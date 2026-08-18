@@ -23,7 +23,16 @@ app.use(express.json({ limit: '10mb' }));
 // Lazy initialize Gemini client if key is available
 let aiClient: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI | null {
-  const key = process.env.GEMINI_API_KEY?.trim();
+  const key = (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    process.env.VITE_GOOGLE_API_KEY ||
+    process.env.API_KEY ||
+    ''
+  ).trim();
+
   if (!key || key === 'undefined' || key === 'null') {
     return null;
   }
@@ -40,13 +49,22 @@ function getAI(): GoogleGenAI | null {
   return aiClient;
 }
 
-// Health check
+// Health check and environment diagnostics
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', database: 'Supabase PostgreSQL', timestamp: new Date().toISOString() });
-});
+  const aiDetected = Boolean(
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY
+  );
 
-// Initialize database schema tables on startup
-ensureTablesExist().catch((e) => console.warn('Supabase table check note:', e.message));
+  res.json({
+    status: 'ok',
+    database: 'Supabase PostgreSQL',
+    geminiConfigured: aiDetected,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // ==========================================
 // Direct Supabase Authentication Routes
@@ -954,7 +972,15 @@ async function startServer() {
   });
 }
 
-if (process.env.VERCEL !== '1') {
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.NOW_REGION ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.NETLIFY
+);
+
+if (!isServerless) {
   startServer();
 }
 
