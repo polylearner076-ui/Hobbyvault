@@ -12,7 +12,7 @@ import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMe
 import { getItemsByUserId, upsertItem, deleteItemById, batchUpsertItems } from './src/db/items.ts';
 import { getSandboxesByUserId, upsertSandbox, deleteSandboxById } from './src/db/sandboxes.ts';
 import { getPortfolioSummaryByUserId, upsertPortfolioSummary } from './src/db/portfolio.ts';
-import { seedSupabaseDatabase } from './src/db/seed.ts';
+import { ensureTablesExist } from './src/db/index.ts';
 
 dotenv.config();
 
@@ -46,19 +46,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', database: 'Supabase PostgreSQL', timestamp: new Date().toISOString() });
 });
 
-// Seed Supabase Database Route
-app.post('/api/database/seed', async (req, res) => {
-  try {
-    const result = await seedSupabaseDatabase();
-    res.json({ success: true, message: 'Database seeded successfully', data: result });
-  } catch (error: any) {
-    console.error('Failed to seed Supabase database:', error);
-    res.status(500).json({ error: error.message || 'Seeding failed' });
-  }
-});
-
-// Auto-seed on startup (idempotent)
-seedSupabaseDatabase().catch((e) => console.warn('Supabase auto-seed note:', e.message));
+// Initialize database schema tables on startup
+ensureTablesExist().catch((e) => console.warn('Supabase table check note:', e.message));
 
 // ==========================================
 // Direct Supabase Authentication Routes

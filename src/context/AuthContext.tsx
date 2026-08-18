@@ -31,27 +31,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Default dummy user initialized from Supabase
-const DEFAULT_SUPABASE_USER: UserProfile = {
-  uid: 'user_123123',
-  email: '123123@gmail.com',
-  displayName: 'Dummy Collector',
-  photoURL: 'https://api.dicebear.com/7.x/bottts/svg?seed=123123',
-  providerId: 'password',
-  primaryProvider: 'password',
-  linkedProviders: ['password'],
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_AUTH_USER);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed?.uid && !parsed?.email?.includes('polylearner')) return parsed;
+        if (parsed?.uid && !parsed?.email?.includes('123123') && !parsed?.email?.includes('polylearner')) {
+          return parsed;
+        }
       }
     } catch {}
-    return DEFAULT_SUPABASE_USER;
+    return null;
   });
 
   const [loading, setLoading] = useState<boolean>(true);
@@ -66,12 +57,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccountClash(null);
   };
 
-  // Restore and verify user session with Supabase on mount
+  // Restore and verify user session with Supabase on mount if a user was previously logged in
   useEffect(() => {
     async function verifySession() {
+      if (!userProfile?.uid) {
+        setLoading(false);
+        return;
+      }
       try {
-        const activeUid = userProfile?.uid || DEFAULT_SUPABASE_USER.uid;
-        const res = await fetch(`/api/auth/me?uid=${encodeURIComponent(activeUid)}`);
+        const res = await fetch(`/api/auth/me?uid=${encodeURIComponent(userProfile.uid)}`);
         if (res.ok) {
           const data = await res.json();
           if (data.user) {
@@ -117,17 +111,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         res = null;
       }
 
-      // If backend returns 404 or fails on static deployment (e.g. Vercel SPA)
+      // If backend returns 404 or fails on static deployment
       if (!res || res.status === 404) {
-        if (cleanEmail === '123123@gmail.com' && pass === '123123') {
-          const profile = DEFAULT_SUPABASE_USER;
-          setUserProfile(profile);
-          try {
-            localStorage.setItem(LOCAL_STORAGE_AUTH_USER, JSON.stringify(profile));
-          } catch {}
-          return;
-        }
-        // Fallback for custom accounts in localStorage
         const profile: UserProfile = {
           uid: `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
           email: cleanEmail,
@@ -150,12 +135,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         data = await res.json();
       } catch {
-        // Fallback for demo account if response is not JSON
-        if (cleanEmail === '123123@gmail.com' && pass === '123123') {
-          setUserProfile(DEFAULT_SUPABASE_USER);
-          localStorage.setItem(LOCAL_STORAGE_AUTH_USER, JSON.stringify(DEFAULT_SUPABASE_USER));
-          return;
-        }
         throw new Error('Database server is initializing. Please wait a few seconds and try again.');
       }
 

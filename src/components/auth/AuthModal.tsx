@@ -192,29 +192,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               Register
             </button>
           </div>
-
-          {/* Quick Fill Dummy Account Button */}
-          <div className="mt-3 flex items-center justify-between p-2.5 bg-blue-50/80 border border-blue-100 rounded-xl">
-            <div className="text-[11px] text-blue-900 leading-tight">
-              <span className="font-semibold block text-blue-950">Dummy Supabase Account</span>
-              <span className="text-blue-700 font-mono text-[10px]">123123@gmail.com • pw: 123123</span>
-            </div>
-            <button
-              type="button"
-              id="quick-fill-dummy-btn"
-              onClick={() => {
-                setEmail('123123@gmail.com');
-                setPassword('123123');
-                setConfirmPassword('123123');
-                setSubMode('signin');
-                clearAuthError();
-                setLocalError(null);
-              }}
-              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-semibold transition-colors shadow-xs"
-            >
-              Auto-Fill
-            </button>
-          </div>
         </div>
 
         <div className="p-6 pt-3 space-y-4 max-h-[75vh] overflow-y-auto">
