@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { Pool, PoolConfig } from 'pg';
 import * as schema from './schema.ts';
 
 declare global {
@@ -8,13 +8,40 @@ declare global {
 
 export const createPool = () => {
   if (!global._postgresPool) {
-    global._postgresPool = new Pool({
-      host: process.env.SQL_HOST,
-      user: process.env.SQL_USER,
-      password: process.env.SQL_PASSWORD,
-      database: process.env.SQL_DB_NAME,
-      max: 10,
-      connectionTimeoutMillis: 15000,
+    const connectionString = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+
+    let config: PoolConfig;
+    if (connectionString && !connectionString.includes('/app/cloudsql')) {
+      const isSsl = connectionString.includes('supabase') || connectionString.includes('sslmode=require') || process.env.SQL_SSL === 'true';
+      config = {
+        connectionString,
+        ssl: isSsl ? { rejectUnauthorized: false } : undefined,
+        max: 10,
+        connectionTimeoutMillis: 15000,
+      };
+    } else {
+      const host = process.env.SUPABASE_HOST || 'db.fhrebbaflrqydgzvzqbc.supabase.co';
+      const user = process.env.SUPABASE_USER || 'postgres';
+      const password = process.env.SUPABASE_PASSWORD || 'HobbyWault!';
+      const database = process.env.SUPABASE_DB_NAME || 'postgres';
+      const port = 5432;
+
+      config = {
+        host,
+        port,
+        user,
+        password,
+        database,
+        ssl: { rejectUnauthorized: false },
+        max: 10,
+        connectionTimeoutMillis: 15000,
+      };
+    }
+
+    global._postgresPool = new Pool(config);
+
+    global._postgresPool.on('connect', (client) => {
+      client.query('SET search_path TO public;');
     });
 
     global._postgresPool.on('error', (err) => {
@@ -24,6 +51,95 @@ export const createPool = () => {
   return global._postgresPool;
 };
 
+export const ensureTablesExist = async () => {
+  try {
+    const currentPool = createPool();
+    await currentPool.query(`
+      SET search_path TO public;
+
+      CREATE TABLE IF NOT EXISTS public.users (
+        id SERIAL PRIMARY KEY,
+        uid TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL,
+        password TEXT,
+        display_name TEXT,
+        photo_url TEXT,
+        provider_id TEXT DEFAULT 'password',
+        primary_provider TEXT DEFAULT 'password',
+        linked_providers JSONB DEFAULT '[]'::jsonb,
+        total_portfolio_value_usd DOUBLE PRECISION DEFAULT 0,
+        total_portfolio_cost_usd DOUBLE PRECISION DEFAULT 0,
+        total_portfolio_gain_loss_usd DOUBLE PRECISION DEFAULT 0,
+        total_items INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password TEXT;
+
+      CREATE TABLE IF NOT EXISTS sandboxes (
+        id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        icon_name TEXT DEFAULT 'Folder',
+        theme_color TEXT DEFAULT '#007AFF',
+        custom_fields JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS items (
+        id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        sandbox_id TEXT DEFAULT 'default',
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        image_url TEXT DEFAULT '',
+        current_price_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+        prev_price_24h DOUBLE PRECISION,
+        prev_price_7d DOUBLE PRECISION,
+        prev_price_30d DOUBLE PRECISION,
+        purchase_price_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+        purchase_date TEXT NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        condition TEXT NOT NULL DEFAULT 'RAW_NM',
+        notes TEXT,
+        tags JSONB DEFAULT '[]'::jsonb,
+        price_history JSONB DEFAULT '[]'::jsonb,
+        card_specs JSONB,
+        beyblade_specs JSONB,
+        transactions JSONB DEFAULT '[]'::jsonb,
+        storage_location JSONB,
+        is_favorite BOOLEAN DEFAULT FALSE,
+        market_source TEXT,
+        last_updated TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS portfolio_summaries (
+        user_id TEXT PRIMARY KEY,
+        total_value_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+        total_cost_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+        total_gain_loss_usd DOUBLE PRECISION NOT NULL DEFAULT 0,
+        total_gain_loss_percent DOUBLE PRECISION NOT NULL DEFAULT 0,
+        item_count INTEGER NOT NULL DEFAULT 0,
+        sandbox_count INTEGER NOT NULL DEFAULT 0,
+        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  } catch (err: any) {
+    // Non-fatal if database credentials are not yet populated
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Database initialization note:', err.message);
+    }
+  }
+};
+
 const pool = createPool();
+ensureTablesExist().catch(() => {});
 
 export const db = drizzle(pool, { schema });

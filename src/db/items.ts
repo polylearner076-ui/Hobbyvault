@@ -2,9 +2,11 @@ import { db } from './index.ts';
 import { items } from './schema.ts';
 import { and, eq } from 'drizzle-orm';
 import type { AssetItem } from '../types.ts';
+import { ensureUserExists } from './users.ts';
 
 export async function getItemsByUserId(userId: string): Promise<AssetItem[]> {
   try {
+    await ensureUserExists(userId);
     const rows = await db.select().from(items).where(eq(items.userId, userId));
     return rows.map((r) => ({
       id: r.id,
@@ -40,6 +42,7 @@ export async function getItemsByUserId(userId: string): Promise<AssetItem[]> {
 
 export async function upsertItem(userId: string, item: AssetItem): Promise<AssetItem> {
   try {
+    await ensureUserExists(userId);
     const values = {
       id: item.id,
       userId: userId,

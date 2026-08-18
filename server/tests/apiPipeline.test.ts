@@ -8,7 +8,6 @@
  */
 
 import { executePricePipeline } from '../dataPipeline.js';
-import { getAdminFirestore } from '../firebaseAdmin.js';
 
 export interface TestReportItem {
   testName: string;
@@ -200,7 +199,6 @@ export async function auditAllIndividualAssets(): Promise<{
   results: AssetAuditItem[];
 }> {
   const results: AssetAuditItem[] = [];
-  const db = getAdminFirestore();
 
   for (const asset of AUDIT_ASSETS) {
     const t0 = Date.now();
@@ -208,7 +206,7 @@ export async function auditAllIndividualAssets(): Promise<{
     let marketSource = 'External Pipeline';
 
     try {
-      const pipelineRes = await executePricePipeline(asset.name, asset.category, true, db);
+      const pipelineRes = await executePricePipeline(asset.name, asset.category, true);
       livePrice = pipelineRes.data.priceUSD;
       marketSource = pipelineRes.source;
     } catch (e: any) {
@@ -449,24 +447,23 @@ export async function runApiTestSuite(): Promise<{
     });
   }
 
-  // Test 5: End-to-End Data Pipeline Execution (Fetch + Cache + Firestore HobbyData DB)
+  // Test 5: End-to-End Data Pipeline Execution (Fetch + In-Memory/Database Cache)
   try {
     const t0 = Date.now();
-    const db = getAdminFirestore();
     
     // First call: Fresh Fetch
-    const pipeline1 = await executePricePipeline('Sol Ring', 'mtg', true, db);
+    const pipeline1 = await executePricePipeline('Sol Ring', 'mtg', true);
     const latency1 = Date.now() - t0;
 
     // Second call: Should hit L1/L2 Cache
     const t1 = Date.now();
-    const pipeline2 = await executePricePipeline('Sol Ring', 'mtg', false, db);
+    const pipeline2 = await executePricePipeline('Sol Ring', 'mtg', false);
     const latency2 = Date.now() - t1;
 
     const cacheHit = pipeline2.fromCache;
 
     results.push({
-      testName: 'Data Pipeline & Multi-Tier Caching (HobbyData DB)',
+      testName: 'Data Pipeline & Multi-Tier Caching (Supabase & L1)',
       target: 'executePricePipeline (MTG::Sol Ring)',
       status: cacheHit ? 'PASSED' : 'WARNING',
       latencyMs: latency1 + latency2,

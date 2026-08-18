@@ -1,6 +1,7 @@
 import { db } from './index.ts';
 import { portfolioSummaries } from './schema.ts';
 import { eq } from 'drizzle-orm';
+import { ensureUserExists } from './users.ts';
 
 export interface PortfolioSummaryData {
   userId: string;
@@ -15,6 +16,7 @@ export interface PortfolioSummaryData {
 
 export async function getPortfolioSummaryByUserId(userId: string): Promise<PortfolioSummaryData | null> {
   try {
+    await ensureUserExists(userId);
     const rows = await db.select().from(portfolioSummaries).where(eq(portfolioSummaries.userId, userId)).limit(1);
     if (!rows.length) return null;
     const r = rows[0];
@@ -36,6 +38,7 @@ export async function getPortfolioSummaryByUserId(userId: string): Promise<Portf
 
 export async function upsertPortfolioSummary(data: PortfolioSummaryData): Promise<PortfolioSummaryData> {
   try {
+    await ensureUserExists(data.userId);
     const existing = await db
       .select()
       .from(portfolioSummaries)

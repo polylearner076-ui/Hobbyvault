@@ -2,9 +2,11 @@ import { db } from './index.ts';
 import { sandboxes } from './schema.ts';
 import { and, eq } from 'drizzle-orm';
 import type { Sandbox } from '../types.ts';
+import { ensureUserExists } from './users.ts';
 
 export async function getSandboxesByUserId(userId: string): Promise<Sandbox[]> {
   try {
+    await ensureUserExists(userId);
     const rows = await db.select().from(sandboxes).where(eq(sandboxes.userId, userId));
     return rows.map((r) => ({
       id: r.id,
@@ -25,6 +27,7 @@ export async function getSandboxesByUserId(userId: string): Promise<Sandbox[]> {
 
 export async function upsertSandbox(userId: string, box: Sandbox): Promise<Sandbox> {
   try {
+    await ensureUserExists(userId);
     const values = {
       id: box.id,
       userId: userId,

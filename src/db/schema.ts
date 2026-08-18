@@ -6,6 +6,7 @@ export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   uid: text('uid').notNull().unique(), // Auth UID
   email: text('email').notNull(),
+  password: text('password'), // Direct password auth
   displayName: text('display_name'),
   photoURL: text('photo_url'),
   providerId: text('provider_id').default('password'),

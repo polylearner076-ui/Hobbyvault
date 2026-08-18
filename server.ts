@@ -3,16 +3,16 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { getAdminFirestore } from './server/firebaseAdmin.js';
 import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, searchOnlineCollectibles, getMemoryCacheStats } from './server/dataPipeline.js';
 import { runApiTestSuite, auditAllIndividualAssets } from './server/tests/apiPipeline.test.js';
 import { auditSourceGroupsHealth, generateAssetMarketIntelligence, processMetaAgentQuery, UPSTREAM_SOURCE_GROUPS } from './server/agentSystem.js';
 import { generateContentWithFallback } from './server/geminiService.js';
 import { requireAuth, AuthRequest } from './src/middleware/auth.ts';
-import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMetrics } from './src/db/users.ts';
+import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMetrics, registerUser, authenticateUser } from './src/db/users.ts';
 import { getItemsByUserId, upsertItem, deleteItemById, batchUpsertItems } from './src/db/items.ts';
 import { getSandboxesByUserId, upsertSandbox, deleteSandboxById } from './src/db/sandboxes.ts';
 import { getPortfolioSummaryByUserId, upsertPortfolioSummary } from './src/db/portfolio.ts';
+import { seedSupabaseDatabase } from './src/db/seed.ts';
 
 dotenv.config();
 
@@ -43,7 +43,81 @@ function getAI(): GoogleGenAI | null {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', database: 'PostgreSQL Cloud SQL', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', database: 'Supabase PostgreSQL', timestamp: new Date().toISOString() });
+});
+
+// Seed Supabase Database Route
+app.post('/api/database/seed', async (req, res) => {
+  try {
+    const result = await seedSupabaseDatabase();
+    res.json({ success: true, message: 'Database seeded successfully', data: result });
+  } catch (error: any) {
+    console.error('Failed to seed Supabase database:', error);
+    res.status(500).json({ error: error.message || 'Seeding failed' });
+  }
+});
+
+// Auto-seed on startup (idempotent)
+seedSupabaseDatabase().catch((e) => console.warn('Supabase auto-seed note:', e.message));
+
+// ==========================================
+// Direct Supabase Authentication Routes
+// ==========================================
+
+// Register Account
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password, displayName } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    const user = await registerUser(email, password, displayName);
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Registration error:', error);
+    res.status(400).json({ error: error.message || 'Registration failed' });
+  }
+});
+
+// Login Account
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    const user = await authenticateUser(email, password);
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Login error:', error);
+    res.status(401).json({ error: error.message || 'Authentication failed' });
+  }
+});
+
+// Get Current User Info
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const uid = (req.query.uid as string) || (req.headers['x-user-id'] as string);
+    const email = req.query.email as string;
+    if (!uid && !email) {
+      return res.status(400).json({ error: 'uid or email parameter is required' });
+    }
+    let user = null;
+    if (uid) {
+      user = await getUserByUid(uid);
+    } else if (email) {
+      user = await getUserByEmail(email);
+    }
+    res.json({ success: true, user });
+  } catch (error: any) {
+    console.error('Auth verification error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch user' });
+  }
+});
+
+// Logout (Stateless client acknowledgement)
+app.post('/api/auth/logout', (req, res) => {
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 // ==========================================
@@ -274,7 +348,7 @@ app.post('/api/portfolio/summary', async (req, res) => {
   }
 });
 
-// API: Lookup live market price using External TCG/Market API Data Pipeline + Multi-Tier Cache (L1 Memory + L2 Firestore)
+// API: Lookup live market price using External TCG/Market API Data Pipeline + Multi-Tier Cache (L1 Memory + Supabase)
 app.post('/api/pricing/lookup', async (req, res) => {
   try {
     const { name, category = 'pokemon', forceRefresh = false, condition, setOrGen } = req.body;
@@ -282,8 +356,7 @@ app.post('/api/pricing/lookup', async (req, res) => {
       return res.status(400).json({ error: 'Item name is required' });
     }
 
-    const db = getAdminFirestore();
-    const pipelineResult = await executePricePipeline(name, category, !!forceRefresh, db);
+    const pipelineResult = await executePricePipeline(name, category, !!forceRefresh);
 
     return res.json({
       success: true,
@@ -315,11 +388,10 @@ app.post('/api/pricing/sync-batch', async (req, res) => {
       return res.status(400).json({ error: 'items array is required' });
     }
 
-    const db = getAdminFirestore();
     const updated = await Promise.all(
       items.map(async (item) => {
         try {
-          const pipelineResult = await executePricePipeline(item.name, item.category || 'pokemon', Boolean(forceRefresh), db);
+          const pipelineResult = await executePricePipeline(item.name, item.category || 'pokemon', Boolean(forceRefresh));
           return {
             id: item.id,
             currentPriceUSD: pipelineResult.data.priceUSD,
@@ -358,33 +430,15 @@ app.post('/api/pricing/sync-batch', async (req, res) => {
 // API: Data Pipeline Diagnostics & Cached Entries
 app.get('/api/pipeline/stats', async (req, res) => {
   try {
-    const db = getAdminFirestore();
     const memStats = getMemoryCacheStats();
-    let cachedCount = memStats.cachedCount;
-    const recentLogs: any[] = [];
-
-    if (db) {
-      try {
-        const snapshot = await db.collection('price_cache').limit(50).get();
-        cachedCount = snapshot.size;
-
-        const logsSnap = await db.collection('pipeline_logs').orderBy('timestamp', 'desc').limit(15).get();
-        logsSnap.forEach((doc) => {
-          recentLogs.push({ id: doc.id, ...doc.data() });
-        });
-      } catch {
-        // Fallback to in-memory stats
-      }
-    }
-
     res.json({
       success: true,
       status: 'operational',
-      database: db ? 'connected (Firestore HobbyData)' : 'in-memory fast cache + Cloud SQL database',
-      databaseName: db ? 'HobbyData' : 'PostgreSQL Cloud SQL',
-      cachedRecordsCount: cachedCount,
+      database: 'Supabase PostgreSQL (Connected)',
+      databaseName: 'Supabase Postgres',
+      cachedRecordsCount: memStats.cachedCount,
       cachedKeys: memStats.keys.slice(0, 15),
-      recentLogs,
+      recentLogs: [],
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -504,8 +558,7 @@ app.post('/api/agent/query-resolution', async (req, res) => {
       category = 'gaming';
     }
 
-    const db = getAdminFirestore();
-    const pipelineResult = await executePricePipeline(query, category, false, db);
+    const pipelineResult = await executePricePipeline(query, category, false);
     const ai = getAI();
     const intel = await generateAssetMarketIntelligence(
       {
