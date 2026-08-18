@@ -1,12 +1,11 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, searchOnlineCollectibles, getMemoryCacheStats } from './server/dataPipeline.js';
-import { runApiTestSuite, auditAllIndividualAssets } from './server/tests/apiPipeline.test.js';
-import { auditSourceGroupsHealth, generateAssetMarketIntelligence, processMetaAgentQuery, UPSTREAM_SOURCE_GROUPS } from './server/agentSystem.js';
-import { generateContentWithFallback } from './server/geminiService.js';
+import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, searchOnlineCollectibles, getMemoryCacheStats } from './server/dataPipeline.ts';
+import { runApiTestSuite, auditAllIndividualAssets } from './server/tests/apiPipeline.test.ts';
+import { auditSourceGroupsHealth, generateAssetMarketIntelligence, processMetaAgentQuery, UPSTREAM_SOURCE_GROUPS } from './server/agentSystem.ts';
+import { generateContentWithFallback } from './server/geminiService.ts';
 import { requireAuth, AuthRequest } from './src/middleware/auth.ts';
 import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMetrics, registerUser, authenticateUser } from './src/db/users.ts';
 import { getItemsByUserId, upsertItem, deleteItemById, batchUpsertItems } from './src/db/items.ts';
@@ -936,6 +935,7 @@ Provide professional market valuation insight in JSON:
 // Start Express server and mount Vite
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
