@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Check,
 } from 'lucide-react';
+import { CollectibleImage } from '../common/CollectibleImage';
 
 interface AssetGridProps {
   onSelectItem: (item: AssetItem) => void;
@@ -392,12 +393,17 @@ export const AssetGrid: React.FC<AssetGridProps> = ({
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          referrerPolicy="no-referrer"
-                          className="w-10 h-10 object-contain rounded-lg bg-[#F2F2F7] p-1 border border-black/[0.06]"
-                        />
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#F2F2F7] border border-black/[0.06] shrink-0">
+                          <CollectibleImage
+                            src={item.imageUrl}
+                            alt={item.name}
+                            category={item.category}
+                            showBadge={false}
+                            iconClassName="w-4 h-4"
+                            className="w-full h-full object-contain p-1"
+                            containerClassName="w-full h-full flex items-center justify-center"
+                          />
+                        </div>
                         <div>
                           <div className="font-bold text-[#1C1C1E] line-clamp-1">{item.name}</div>
                           <div className="text-[11px] text-[#8E8E93]">

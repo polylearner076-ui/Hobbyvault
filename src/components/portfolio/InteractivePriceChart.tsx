@@ -51,15 +51,28 @@ export const InteractivePriceChart: React.FC<InteractivePriceChartProps> = ({
     const sortedEntries = Array.from(map.entries())
       .sort((a, b) => a[0].localeCompare(b[0]));
 
-    return sortedEntries.map(([date, priceUSD]) => ({
-      date,
-      displayDate: new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-      }),
-      value: convertPrice(priceUSD),
-      priceUSD,
-    }));
+    return sortedEntries.map(([date, priceUSD]) => {
+      // Parse YYYY-MM-DD cleanly to avoid timezone shifting
+      const parts = date.split('-');
+      let displayDate = date;
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const d = new Date(year, month, day);
+        displayDate = d.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+
+      return {
+        date,
+        displayDate,
+        value: convertPrice(priceUSD),
+        priceUSD,
+      };
+    });
   }, [rawData, convertPrice]);
 
   const convertedCost = convertPrice(costUSD);
@@ -86,19 +99,19 @@ export const InteractivePriceChart: React.FC<InteractivePriceChartProps> = ({
     <div className="w-full flex flex-col gap-3">
       {/* Time Range Pills */}
       {showTimeRangeSelector && (
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-bold text-[#8E8E93] uppercase tracking-wider">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="text-[11px] sm:text-xs font-bold text-[#8E8E93] uppercase tracking-wider">
             Portfolio Value Trend
           </div>
-          <div className="flex items-center gap-1 bg-black/[0.04] p-1 rounded-xl border border-black/[0.06]">
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-black/[0.04] p-0.5 sm:p-1 rounded-xl border border-black/[0.06] overflow-x-auto no-scrollbar self-start sm:self-auto max-w-full">
             {ranges.map((r) => (
               <button
                 key={r}
                 id={`btn-timerange-${r}`}
                 onClick={() => setTimeRange(r)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                   timeRange === r
-                    ? 'bg-white text-[#1C1C1E] shadow-sm'
+                    ? 'bg-white text-[#1C1C1E] shadow-2xs'
                     : 'text-[#8E8E93] hover:text-[#1C1C1E] hover:bg-black/[0.04]'
                 }`}
               >
@@ -127,6 +140,8 @@ export const InteractivePriceChart: React.FC<InteractivePriceChartProps> = ({
               tickLine={false}
               axisLine={false}
               dy={5}
+              minTickGap={32}
+              interval="preserveStartEnd"
             />
             <YAxis
               stroke="#8E8E93"

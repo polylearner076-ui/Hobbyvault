@@ -7,12 +7,8 @@ import {
   ChevronDown,
   Box,
   Coins,
-  Check,
   Download,
   Upload,
-  Activity,
-  RotateCcw,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useVault } from '../../context/VaultContext';
@@ -22,7 +18,6 @@ import { CURRENCIES } from '../../data/initialData';
 interface UserMenuProps {
   onOpenAuthModal: (mode: 'signin' | 'register') => void;
   onOpenStorageInventory?: () => void;
-  onOpenDiagnosticsModal?: () => void;
   onExportJSON?: () => void;
   onImportJSON?: () => void;
   onResetPortfolio?: () => void;
@@ -31,7 +26,6 @@ interface UserMenuProps {
 export const UserMenu: React.FC<UserMenuProps> = ({
   onOpenAuthModal,
   onOpenStorageInventory,
-  onOpenDiagnosticsModal,
   onExportJSON,
   onImportJSON,
   onResetPortfolio,
@@ -233,7 +227,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
           )}
 
           {/* Optional Direct Vault Tools inside User Menu for mobile convenience */}
-          {(onExportJSON || onImportJSON || onOpenDiagnosticsModal) && (
+          {(onExportJSON || onImportJSON) && (
             <>
               <div className="my-1 h-[1px] bg-black/[0.06]" />
               <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
@@ -267,21 +261,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({
                 >
                   <Upload className="w-3.5 h-3.5 text-[#007AFF]" />
                   <span>Import Backup JSON</span>
-                </button>
-              )}
-
-              {onOpenDiagnosticsModal && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsOpen(false);
-                    onOpenDiagnosticsModal();
-                  }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#1C1C1E] hover:bg-black/[0.04] transition-colors cursor-pointer"
-                >
-                  <Activity className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>API Pipeline Diagnostics</span>
                 </button>
               )}
             </>

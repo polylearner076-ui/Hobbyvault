@@ -13,6 +13,7 @@ import {
   calculateItemTotalCost,
   getConditionBreakdown,
 } from '../../utils/conditionUtils';
+import { CollectibleImage } from '../common/CollectibleImage';
 
 interface AssetCardProps {
   item: AssetItem;
@@ -118,15 +119,12 @@ export const AssetCard: React.FC<AssetCardProps> = ({ item, onClick }) => {
       {/* Top Media & Floating Badges */}
       <div>
         <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-[#F2F2F7] mb-3.5 border border-black/[0.04] flex items-center justify-center">
-          <img
+          <CollectibleImage
             src={item.imageUrl}
             alt={item.name}
-            referrerPolicy="no-referrer"
-            loading="lazy"
+            category={item.category}
             className="w-full h-full object-contain p-2.5 transition-transform duration-300 group-hover:scale-105"
-            onError={(e: any) => {
-              e.target.src = 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=600&q=80';
-            }}
+            containerClassName="w-full h-full flex items-center justify-center"
           />
 
           {/* Floating Favorite Star */}

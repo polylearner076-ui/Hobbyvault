@@ -16,6 +16,7 @@ import {
   getAssetFragility,
   formatWeight,
 } from '../../utils/storageAnalytics';
+import { CollectibleImage } from '../common/CollectibleImage';
 import {
   X,
   Star,
@@ -448,11 +449,12 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
             {/* Left Media Stage */}
             <div className="md:col-span-5 flex flex-col items-center">
               <div className="relative w-full aspect-[4/3] rounded-3xl bg-[#F2F2F7] border border-black/[0.06] overflow-hidden flex items-center justify-center p-4 shadow-inner">
-                <img
+                <CollectibleImage
                   src={item.imageUrl}
                   alt={item.name}
-                  referrerPolicy="no-referrer"
+                  category={item.category}
                   className="w-full h-full object-contain drop-shadow-md transition-transform duration-300 hover:scale-105"
+                  containerClassName="w-full h-full flex items-center justify-center"
                 />
               </div>
 
@@ -635,7 +637,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ item, onClos
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">Sandbox</label>
+                  <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">Vault / Collection</label>
                   <select
                     value={editedSandboxId}
                     onChange={(e) => setEditedSandboxId(e.target.value)}

@@ -7,8 +7,6 @@ import {
   ensureCopiesForAsset,
 } from '../utils/conditionUtils';
 import { getAllCategoryMetas, saveCustomCategoryMeta } from '../utils/categoryUtils';
-import { generateStarterPortfolioForUser } from '../services/portfolioGenerator';
-import luffyMangaImg from '../assets/images/luffy_op05_manga_1786710252169.jpg';
 import { syncBatchPrices, queryMetaAgent } from '../services/api';
 import { useAuth } from './AuthContext';
 import {
@@ -176,25 +174,8 @@ const STORAGE_KEY_STORAGE_UNITS = 'collectorvault_storage_units_v1';
 const STORAGE_KEY_STARRED_STORAGES = 'collectorvault_starred_storages_v1';
 const STORAGE_KEY_ACTIVE_VIEW = 'collectorvault_active_view_v1';
 
-// Canonical image mapping for known collectibles to ensure high fidelity rendering
-const CANONICAL_IMAGE_MAP: Record<string, string> = {
-  'op-01': luffyMangaImg,
-  'poke-01': 'https://images.pokemontcg.io/sv3pt5/199_hires.png',
-  'poke-02': 'https://images.pokemontcg.io/swsh7/215_hires.png',
-  'poke-03': 'https://images.pokemontcg.io/svp/85_hires.png',
-  'poke-04': 'https://images.pokemontcg.io/swsh8/271_hires.png',
-  'mtg-01': 'https://cards.scryfall.io/normal/front/a/9/a9738cda-adb1-47fb-9f4c-ecd930228c4d.jpg',
-  'mtg-02': 'https://cards.scryfall.io/normal/front/d/5/d5806e68-1054-458e-866d-1f2470f682b2.jpg',
-  'mtg-03': 'https://cards.scryfall.io/normal/front/b/d/bd8fa327-dd41-4737-8f19-2cf5eb1f7cdd.jpg',
-};
-
 function sanitizeItemData(rawItems: AssetItem[]): AssetItem[] {
   return rawItems.map((item) => {
-    const canonical =
-      CANONICAL_IMAGE_MAP[item.id] ||
-      CANONICAL_IMAGE_MAP[item.name.toLowerCase()] ||
-      (item.name.toLowerCase().includes('luffy') ? luffyMangaImg : null);
-
     let sanitizedHistory: PriceHistoryPoint[] = [];
     if (item.priceHistory && item.priceHistory.length > 0) {
       const map = new Map<string, number>();
@@ -210,16 +191,6 @@ function sanitizeItemData(rawItems: AssetItem[]): AssetItem[] {
 
     return {
       ...item,
-      imageUrl:
-        canonical &&
-        (!item.imageUrl ||
-          item.imageUrl.includes('unsplash.com') ||
-          item.id === 'op-01' ||
-          item.name.toLowerCase().includes('luffy') ||
-          item.id.startsWith('bey-') ||
-          item.id === 'game-01')
-          ? canonical
-          : item.imageUrl,
       priceHistory: sanitizedHistory.length > 0 ? sanitizedHistory : item.priceHistory,
     };
   });
@@ -667,15 +638,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (fetchedItems.length > 0) {
           setItems(sanitizeItemData(fetchedItems));
         } else {
-          // Initialize starter portfolio for brand new users
-          const starterItems = generateStarterPortfolioForUser(activeUserId!);
-          setItems(sanitizeItemData(starterItems));
-          for (const it of starterItems) {
-            await saveItemToDatabase(it, activeUserId);
-          }
-          for (const sb of INITIAL_SANDBOXES) {
-            await saveSandboxToDatabase(sb, activeUserId);
-          }
+          setItems([]);
         }
 
         if (fetchedSandboxes.length > 0) {
@@ -701,6 +664,9 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         } else {
           setSandboxes(INITIAL_SANDBOXES);
+          for (const sb of INITIAL_SANDBOXES) {
+            await saveSandboxToDatabase(sb, activeUserId);
+          }
         }
       } catch (err) {
         console.warn('Failed to load user data from database:', err);
@@ -1036,19 +1002,26 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const todayStr = now.toISOString().split('T')[0];
 
     let daysCount = 30;
-    let stepDays = 1;
+    let stepDays = 2;
     if (timeRange === '7D') { daysCount = 7; stepDays = 1; }
-    else if (timeRange === '1M') { daysCount = 30; stepDays = 1; }
-    else if (timeRange === '3M') { daysCount = 90; stepDays = 2; }
-    else if (timeRange === '6M') { daysCount = 180; stepDays = 3; }
-    else if (timeRange === '1Y') { daysCount = 365; stepDays = 7; }
-    else if (timeRange === 'ALL') { daysCount = 365; stepDays = 7; }
+    else if (timeRange === '1M') { daysCount = 30; stepDays = 2; }
+    else if (timeRange === '3M') { daysCount = 90; stepDays = 6; }
+    else if (timeRange === '6M') { daysCount = 180; stepDays = 12; }
+    else if (timeRange === '1Y') { daysCount = 360; stepDays = 15; }
+    else if (timeRange === 'ALL') { daysCount = 360; stepDays = 15; }
 
-    // Generate timeline date buckets
+    // Generate timeline date buckets cleanly without timezone drift
     const timelineDates: string[] = [];
+    const baseDate = new Date();
+    baseDate.setUTCHours(12, 0, 0, 0);
+
     for (let i = daysCount; i > 0; i -= stepDays) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      timelineDates.push(d.toISOString().split('T')[0]);
+      const d = new Date(baseDate);
+      d.setUTCDate(baseDate.getUTCDate() - i);
+      const iso = d.toISOString().split('T')[0];
+      if (!timelineDates.includes(iso)) {
+        timelineDates.push(iso);
+      }
     }
     // Always include exact today
     if (!timelineDates.includes(todayStr)) {
@@ -1339,13 +1312,9 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const resetToDefaults = async () => {
     if (!activeUserId) return;
     await clearUserVaultInDatabase(activeUserId);
-    const starterItems = generateStarterPortfolioForUser(activeUserId);
-    setItems(starterItems);
+    setItems([]);
     setSandboxes(INITIAL_SANDBOXES);
     setActiveSandboxId('all');
-    for (const it of starterItems) {
-      await saveItemToDatabase(it, activeUserId);
-    }
     for (const sb of INITIAL_SANDBOXES) {
       await saveSandboxToDatabase(sb, activeUserId);
     }

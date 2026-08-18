@@ -257,6 +257,9 @@ export async function seedInitialDatabase(
 export async function clearUserVaultInDatabase(userId?: string | null): Promise<void> {
   if (!userId) return;
   try {
+    try {
+      localStorage.removeItem(`${LOCAL_STORAGE_ITEMS_PREFIX}${userId}`);
+    } catch {}
     const items = await loadItemsFromDatabase(userId);
     for (const item of items) {
       await deleteItemFromDatabase(item.id, userId);

@@ -127,9 +127,6 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
                 <span className="font-semibold tracking-tight text-sm sm:text-base text-[#1C1C1E] whitespace-nowrap">
                   Collector<span className="text-[#007AFF] font-bold">Vault</span>
                 </span>
-                <span className="hidden md:inline text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-[#007AFF]/10 text-[#007AFF] border border-[#007AFF]/20">
-                  Pro
-                </span>
               </div>
             </div>
           </button>
@@ -364,7 +361,6 @@ export const AppleNavbar: React.FC<AppleNavbarProps> = ({
               <UserMenu
                 onOpenAuthModal={onOpenAuthModal}
                 onOpenStorageInventory={onOpenStorageModal}
-                onOpenDiagnosticsModal={onOpenDiagnosticsModal}
                 onExportJSON={exportJSON}
                 onImportJSON={handleImportClick}
                 onResetPortfolio={handleReset}

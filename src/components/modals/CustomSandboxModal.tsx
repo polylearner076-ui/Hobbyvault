@@ -117,7 +117,7 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
         <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] bg-[#F2F2F7]">
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-[#1C1C1E] tracking-wide">
-              Create New Hobby Vault Sandbox
+              Create New Hobby Vault
             </span>
           </div>
           <button
@@ -131,7 +131,7 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div>
             <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-              Sandbox Vault Name *
+              Vault Name *
             </label>
             <input
               type="text"
@@ -301,7 +301,7 @@ export const CustomSandboxModal: React.FC<CustomSandboxModalProps> = ({ onClose 
               type="submit"
               className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white font-bold text-xs shadow-sm cursor-pointer"
             >
-              Create Sandbox
+              Create Vault
             </button>
           </div>
         </form>

@@ -135,8 +135,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({ onClose }) => {
       name: scanResult.name,
       category: targetCategory,
       imageUrl: selectedImage || (targetCategory === 'beyblade'
-        ? 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=600&q=80'
-        : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80'),
+        ? '/assets/images/cobalt_drake_bey_1786709634306.jpg'
+        : ''),
       currentPriceUSD: estPrice,
       purchasePriceUSD: Number((estPrice * 0.85).toFixed(2)),
       purchaseDate: new Date().toISOString().split('T')[0],

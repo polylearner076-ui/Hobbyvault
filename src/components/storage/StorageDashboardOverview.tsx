@@ -362,46 +362,50 @@ export const StorageDashboardOverview: React.FC<StorageDashboardOverviewProps> =
                     </div>
                   </div>
 
-                  {/* Right metrics & progress bar */}
-                  <div className="flex items-center justify-between md:justify-end gap-6 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-black/[0.04]">
+                  {/* Right metrics */}
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 md:flex md:items-center md:justify-end md:gap-6 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-black/[0.04] w-full md:w-auto">
                     {/* Weight badge */}
-                    <div className="text-left md:text-right">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
+                    <div className="text-left md:text-right min-w-0">
+                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] truncate">
                         Total Mass
                       </div>
-                      <div className="text-xs font-bold text-[#1C1C1E] flex items-center gap-1 md:justify-end mt-0.5">
-                        <Scale className="w-3 h-3 text-[#8E8E93]" />
-                        {cont.weightFormatted.display}
+                      <div className="text-[11px] sm:text-xs font-bold text-[#1C1C1E] flex items-center gap-1 md:justify-end mt-0.5 whitespace-nowrap">
+                        <Scale className="w-3 h-3 text-[#8E8E93] shrink-0" />
+                        <span className="truncate">
+                          {cont.totalWeightGrams >= 1000
+                            ? `${(cont.totalWeightGrams / 1000).toFixed(2)} kg`
+                            : `${Math.round(cont.totalWeightGrams)} g`}
+                        </span>
                       </div>
                     </div>
 
                     {/* Fragility badge */}
-                    <div className="text-left md:text-right min-w-[90px]">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#8E8E93]">
+                    <div className="text-left sm:text-center md:text-right min-w-0 sm:min-w-[80px]">
+                      <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[#8E8E93] truncate">
                         Fragility
                       </div>
-                      <div className="flex items-center gap-1 md:justify-end mt-0.5">
+                      <div className="flex items-center gap-1 sm:justify-center md:justify-end mt-0.5 whitespace-nowrap">
                         <span
-                          className="w-2 h-2 rounded-full"
+                          className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0"
                           style={{ backgroundColor: cont.fragilityColor }}
                         />
-                        <span className="text-xs font-semibold text-[#1C1C1E]">
+                        <span className="text-[11px] sm:text-xs font-semibold text-[#1C1C1E] truncate">
                           {cont.fragilityLabel.split(' ')[0]} ({cont.fragilityScore})
                         </span>
                       </div>
                     </div>
 
                     {/* Value & share */}
-                    <div className="text-right min-w-[110px]">
-                      <div className="text-sm font-bold text-[#1C1C1E]">
+                    <div className="text-right min-w-0 sm:min-w-[100px]">
+                      <div className="text-xs sm:text-sm font-bold text-[#1C1C1E] whitespace-nowrap">
                         {formatPrice(cont.totalValueUSD)}
                       </div>
-                      <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">
+                      <div className="text-[10px] sm:text-[11px] text-emerald-600 font-semibold mt-0.5 whitespace-nowrap truncate">
                         {cont.valueSharePercentage?.toFixed(1)}% of storage
                       </div>
                     </div>
 
-                    <ChevronRight className="w-4 h-4 text-[#8E8E93] group-hover:text-[#007AFF] group-hover:translate-x-0.5 transition-all shrink-0 hidden sm:block" />
+                    <ChevronRight className="w-4 h-4 text-[#8E8E93] group-hover:text-[#007AFF] group-hover:translate-x-0.5 transition-all shrink-0 hidden md:block" />
                   </div>
                 </div>
               );

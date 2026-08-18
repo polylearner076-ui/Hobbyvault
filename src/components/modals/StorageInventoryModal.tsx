@@ -411,15 +411,6 @@ export const StorageInventoryModal: React.FC<StorageInventoryModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.print()}
-              title="Print Physical Vault Packing Manifest"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/[0.04] hover:bg-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print Manifest</span>
-            </button>
-
-            <button
               onClick={() => setShowAddStorage(!showAddStorage)}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-xs font-semibold text-white shadow-sm transition-all active:scale-95 cursor-pointer"
             >

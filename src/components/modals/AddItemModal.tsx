@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useVault } from '../../context/VaultContext';
 import { lookupLiveMarketPrice, searchOnlineSuggestions, SearchSuggestionResult } from '../../services/api';
 import {
@@ -22,9 +22,10 @@ import {
   Scale,
   ShieldAlert,
 } from 'lucide-react';
-import { HobbyType, ItemCondition, AssetCopy, FragilityLevel } from '../../types';
+import { HobbyType, ItemCondition, AssetCopy, FragilityLevel, CategoryTypeMeta } from '../../types';
 import { CONDITION_METAS, getConditionMeta, calculateCopyValue } from '../../utils/conditionUtils';
-import { CATEGORY_GROUPS, getAllCategoryMetas } from '../../utils/categoryUtils';
+import { CATEGORY_GROUPS, getAllCategoryMetas, getCategoryMeta } from '../../utils/categoryUtils';
+import { CollectibleImage } from '../common/CollectibleImage';
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -43,7 +44,16 @@ interface NewCopyDraft {
 }
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
-  const { sandboxes, activeSandboxId, addItem, formatPrice, storageUnits, categoryMetas } = useVault();
+  const {
+    sandboxes,
+    activeSandboxId,
+    addItem,
+    items,
+    formatPrice,
+    storageUnits,
+    categoryMetas,
+    addCustomCategoryMeta,
+  } = useVault();
 
   // Determine initial sandbox and its category
   const activeSb = sandboxes.find((s) => s.id === activeSandboxId) || sandboxes[0];
@@ -126,7 +136,51 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
   const dropdownContainerRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
+  // Inline custom category creator state
+  const [showNewCategoryInline, setShowNewCategoryInline] = useState(false);
+  const [newCategoryLabel, setNewCategoryLabel] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#007AFF');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('Sparkles');
+
   const allCategoryMetas = categoryMetas && categoryMetas.length > 0 ? categoryMetas : getAllCategoryMetas();
+
+  // Reflect ONLY current existing categories from sandboxes, items, and custom user categories
+  const existingCategories = useMemo(() => {
+    const set = new Set<string>();
+    sandboxes.forEach((s) => {
+      if (s.type) set.add(s.type);
+    });
+    items.forEach((i) => {
+      if (i.category) set.add(i.category);
+    });
+    categoryMetas.filter((m) => m.isCustom).forEach((m) => set.add(m.id));
+
+    // If empty, supply default active category
+    if (set.size === 0) {
+      set.add(category || 'pokemon');
+    }
+
+    return Array.from(set).map((catId) => getCategoryMeta(catId));
+  }, [sandboxes, items, categoryMetas, category]);
+
+  const handleCreateCustomCategoryInline = () => {
+    if (!newCategoryLabel.trim()) return;
+    const cleanName = newCategoryLabel.trim();
+    const id = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const newMeta: CategoryTypeMeta = {
+      id,
+      label: cleanName,
+      group: 'Custom Hobby Categories',
+      defaultColor: newCategoryColor,
+      iconName: newCategoryIcon,
+      isCustom: true,
+      description: `Custom ${cleanName} collection`,
+    };
+    addCustomCategoryMeta(newMeta);
+    setCategory(id as HobbyType);
+    setShowNewCategoryInline(false);
+    setNewCategoryLabel('');
+  };
 
   const getSearchPlaceholder = (cat: HobbyType) => {
     switch (cat) {
@@ -389,7 +443,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
     const defaultImg =
       category === 'beyblade'
         ? '/assets/images/cobalt_drake_bey_1786709634306.jpg'
-        : 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
+        : '';
 
     let builtCopies: AssetCopy[] | undefined = undefined;
     let finalQty = qty;
@@ -518,46 +572,95 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
               </div>
             )}
 
-            {/* Hobby Category Selector (Replaces previous target sandbox section) */}
+            {/* Hobby Category Selector (Reflects ONLY current existing categories or + Add Custom Category) */}
             <div>
-              <label className="text-[11px] font-bold text-[#8E8E93] block mb-1">
-                Hobby Category *
-              </label>
-              <select
-                id="add-item-category-select"
-                value={category}
-                onChange={(e) => handleCategoryChange(e.target.value as HobbyType)}
-                className="w-full px-3.5 py-2.5 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium text-xs focus:outline-none focus:border-[#007AFF] transition-colors cursor-pointer"
-              >
-                {CATEGORY_GROUPS.map((group) => {
-                  const groupMetas = allCategoryMetas.filter((m) => {
-                    if (group.id === 'tcg') return m.group === 'Trading Card Games (TCG)';
-                    if (group.id === 'toys_models') return m.group === 'Action Toys, Models & Spinning Tops';
-                    if (group.id === 'gaming') return m.group === 'Video Games & Hardware';
-                    if (group.id === 'comics_entertainment') return m.group === 'Comics, Manga & Pop Culture';
-                    if (group.id === 'luxury_fashion') return m.group === 'Luxury, Timepieces & Streetwear';
-                    if (group.id === 'art_memorabilia') return m.group === 'Art, Coins & Sports Memorabilia';
-                    if (group.id === 'custom_user') return m.group === 'Custom Hobby Categories' || m.isCustom;
-                    return m.group === group.name;
-                  });
-
-                  if (groupMetas.length === 0) return null;
-
-                  return (
-                    <optgroup key={group.id} label={group.name}>
-                      {groupMetas.map((meta) => (
-                        <option key={meta.id} value={meta.id}>
-                          {meta.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-                {/* Fallback for any unknown category currently set */}
-                {!allCategoryMetas.some((m) => m.id === category) && (
-                  <option value={category}>{category}</option>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-[#8E8E93]">
+                  Hobby Category *
+                </label>
+                {!showNewCategoryInline && (
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategoryInline(true)}
+                    className="text-[11px] text-[#007AFF] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>+ Add Custom Category</span>
+                  </button>
                 )}
-              </select>
+              </div>
+
+              {!showNewCategoryInline ? (
+                <select
+                  id="add-item-category-select"
+                  value={category}
+                  onChange={(e) => {
+                    if (e.target.value === '__CREATE_NEW__') {
+                      setShowNewCategoryInline(true);
+                    } else {
+                      handleCategoryChange(e.target.value as HobbyType);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-[#1C1C1E] font-medium text-xs focus:outline-none focus:border-[#007AFF] transition-colors cursor-pointer"
+                >
+                  {existingCategories.map((meta) => (
+                    <option key={meta.id} value={meta.id}>
+                      {meta.label} {meta.isCustom ? '(Custom)' : ''}
+                    </option>
+                  ))}
+                  <option value="__CREATE_NEW__">+ Add New Custom Category...</option>
+                </select>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-white border border-[#007AFF]/30 shadow-xs space-y-3 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#1C1C1E]">Create Custom Category</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewCategoryInline(false)}
+                      className="text-xs text-[#8E8E93] hover:text-[#1C1C1E] cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#8E8E93] font-semibold block mb-1">Category Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Vintage Watches, Coins, Gunpla, Lego, Sports Memorabilia..."
+                      value={newCategoryLabel}
+                      onChange={(e) => setNewCategoryLabel(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-[#F2F2F7] border border-black/[0.08] rounded-xl text-xs text-[#1C1C1E] focus:outline-none focus:border-[#007AFF]"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <div className="flex items-center gap-1.5">
+                      {['#007AFF', '#AF52DE', '#FF9500', '#FF3B30', '#34C759', '#5856D6'].map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setNewCategoryColor(color)}
+                          className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
+                            newCategoryColor === color ? 'scale-125 border-black/40' : 'border-transparent'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCreateCustomCategoryInline}
+                      disabled={!newCategoryLabel.trim()}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#007AFF] text-white font-bold text-xs disabled:opacity-50 hover:bg-[#007AFF]/90 transition-colors cursor-pointer shadow-xs"
+                    >
+                      Save & Use
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Item Name & Live Debounce Online Search Container */}
@@ -789,16 +892,16 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
 
             {/* Multi-Condition Copies Manager Box */}
             {!useMultiCopies ? (
-              <div className="p-3 rounded-2xl bg-[#F2F2F7] border border-black/[0.06] flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-white text-[#007AFF] shadow-xs">
+              <div className="p-3.5 rounded-2xl bg-[#F2F2F7] border border-black/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="p-2 rounded-xl bg-white text-[#007AFF] shadow-xs shrink-0">
                     <Copy className="w-4 h-4" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="text-xs font-semibold text-[#1C1C1E]">
                       Own multiple copies in different conditions?
                     </div>
-                    <div className="text-[10px] text-[#8E8E93]">
+                    <div className="text-[10px] text-[#8E8E93] truncate">
                       e.g., 1x Near Mint, 1x Well Condition (LP), 1x Poor Condition (HP)
                     </div>
                   </div>
@@ -812,7 +915,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({ onClose }) => {
                       handleAddCopyDraft('RAW_LP');
                     }
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-[#007AFF] text-white text-xs font-medium hover:bg-[#007AFF]/90 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                  className="px-3.5 py-1.5 rounded-xl bg-[#007AFF] text-white text-xs font-medium hover:bg-[#007AFF]/90 transition-colors flex items-center justify-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Configure Copies</span>

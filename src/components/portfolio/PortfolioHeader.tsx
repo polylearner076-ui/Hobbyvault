@@ -50,7 +50,7 @@ export const PortfolioHeader: React.FC<PortfolioHeaderProps> = ({ onOpenAgentMod
     ? activeSandbox.name.toLowerCase().includes('vault')
       ? activeSandbox.name
       : `${activeSandbox.name} Vault`
-    : 'All Sandboxes Portfolio';
+    : 'All Portfolios';
 
   return (
     <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4">

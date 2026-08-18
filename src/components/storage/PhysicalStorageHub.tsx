@@ -488,16 +488,6 @@ export const PhysicalStorageHub: React.FC = () => {
             {/* Quick Actions */}
             <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
               <button
-                id="btn-print-manifest"
-                onClick={() => setShowPrintManifest(true)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-[#F2F2F7] border border-black/[0.08] text-xs font-semibold text-[#1C1C1E] transition-colors shadow-xs"
-              >
-                <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#8E8E93]" />
-                <span className="hidden xs:inline">Print Manifest</span>
-                <span className="xs:hidden">Manifest</span>
-              </button>
-
-              <button
                 id="btn-new-location"
                 onClick={() => setShowAddStorage(true)}
                 className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white text-xs font-semibold transition-all shadow-xs active:scale-95"
@@ -1943,77 +1933,6 @@ export const PhysicalStorageHub: React.FC = () => {
               >
                 Done
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PRINT MANIFEST DIALOG */}
-      {showPrintManifest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl border border-black/[0.08] shadow-2xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
-              <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-[#007AFF]" />
-                <h3 className="text-base font-bold text-[#1C1C1E]">
-                  Physical Storage Inventory Manifest
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowPrintManifest(false)}
-                className="text-[#8E8E93] hover:text-[#1C1C1E] text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto py-4 space-y-6 text-xs" id="printable-manifest">
-              {Object.entries(storageHierarchy.hierarchy).map(([meta, metaData]) => (
-                <div key={meta} className="border-b border-black/[0.06] pb-4">
-                  <div className="flex items-center justify-between font-bold text-sm text-[#1C1C1E] mb-2">
-                    <span>{meta}</span>
-                    <span>{formatPrice((metaData as MetaStorageNode).totalValueUSD)}</span>
-                  </div>
-                  {Object.entries((metaData as MetaStorageNode).containers).map(([cont, cData]) => (
-                    <div key={cont} className="ml-4 mb-3">
-                      <div className="font-semibold text-xs text-[#007AFF] mb-1">
-                        📦 {cont} ({cData.items.length} assets)
-                      </div>
-                      <div className="space-y-1 ml-3">
-                        {cData.items.map((it) => (
-                          <div key={it.id} className="flex items-center justify-between text-[#1C1C1E]">
-                            <span>
-                              • {it.name}{' '}
-                              {it.storageLocation?.slot ? `[${it.storageLocation.slot}]` : ''}
-                            </span>
-                            <span className="font-mono">{formatPrice(it.currentPriceUSD * it.quantity)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-3 border-t border-black/[0.06] flex items-center justify-between">
-              <span className="text-xs text-[#8E8E93]">
-                Total Real-World Valuation: <strong>{formatPrice(totalPhysicalValueUSD)}</strong>
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowPrintManifest(false)}
-                  className="px-4 py-2 rounded-xl border border-black/[0.08] text-xs font-semibold"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="px-5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] text-white text-xs font-semibold shadow-xs"
-                >
-                  Print to PDF
-                </button>
-              </div>
             </div>
           </div>
         </div>
