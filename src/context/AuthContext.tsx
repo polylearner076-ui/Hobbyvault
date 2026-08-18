@@ -112,7 +112,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email: cleanEmail, password: pass }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Database server is initializing. Please wait a few seconds and try again.');
+      }
+
       if (!res.ok || !data.success || !data.user) {
         const msg = data.error || 'Invalid email or password in Supabase database.';
         setAuthError(msg);
@@ -134,8 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfile(profile);
       localStorage.setItem(LOCAL_STORAGE_AUTH_USER, JSON.stringify(profile));
     } catch (err: any) {
-      setAuthError(err.message || 'Login failed.');
-      throw err;
+      const displayMsg = err.message || 'Login failed.';
+      setAuthError(displayMsg);
+      throw new Error(displayMsg);
     }
   };
 
@@ -152,7 +159,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email: cleanEmail, password: pass, displayName }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Database server is initializing. Please wait a few seconds and try again.');
+      }
+
       if (!res.ok || !data.success || !data.user) {
         const msg = data.error || 'Registration failed in Supabase database.';
         setAuthError(msg);
@@ -174,8 +187,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfile(profile);
       localStorage.setItem(LOCAL_STORAGE_AUTH_USER, JSON.stringify(profile));
     } catch (err: any) {
-      setAuthError(err.message || 'Registration failed.');
-      throw err;
+      const displayMsg = err.message || 'Registration failed.';
+      setAuthError(displayMsg);
+      throw new Error(displayMsg);
     }
   };
 
