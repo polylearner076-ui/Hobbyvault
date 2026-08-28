@@ -1,9 +1,9 @@
-import { db } from './index.ts';
-import { sandboxes } from './schema.ts';
+import { db } from './index';
+import { sandboxes } from './schema';
 import { and, eq } from 'drizzle-orm';
-import type { Sandbox } from '../types.ts';
-import { ensureUserExists } from './users.ts';
-import { memoryStore } from './inMemoryStore.ts';
+import type { Sandbox } from '../types';
+import { ensureUserExists } from './users';
+import { memoryStore } from './inMemoryStore';
 
 export async function getSandboxesByUserId(userId: string): Promise<Sandbox[]> {
   try {

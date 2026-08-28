@@ -1,9 +1,9 @@
-import { db } from './index.ts';
-import { items } from './schema.ts';
+import { db } from './index';
+import { items } from './schema';
 import { and, eq } from 'drizzle-orm';
-import type { AssetItem } from '../types.ts';
-import { ensureUserExists } from './users.ts';
-import { memoryStore } from './inMemoryStore.ts';
+import type { AssetItem } from '../types';
+import { ensureUserExists } from './users';
+import { memoryStore } from './inMemoryStore';
 
 export async function getItemsByUserId(userId: string): Promise<AssetItem[]> {
   try {

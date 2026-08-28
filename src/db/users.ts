@@ -1,7 +1,7 @@
-import { db } from './index.ts';
-import { users } from './schema.ts';
+import { db } from './index';
+import { users } from './schema';
 import { eq } from 'drizzle-orm';
-import { memoryStore, type StoredUser } from './inMemoryStore.ts';
+import { memoryStore, type StoredUser } from './inMemoryStore';
 
 export interface UserInput {
   uid: string;

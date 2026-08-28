@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getUserByUid } from '../db/users.ts';
+import { getUserByUid } from '../db/users';
 
 export interface AuthRequest extends Request {
   user?: any;

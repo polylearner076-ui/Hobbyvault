@@ -1,8 +1,8 @@
-import { db } from './index.ts';
-import { portfolioSummaries } from './schema.ts';
+import { db } from './index';
+import { portfolioSummaries } from './schema';
 import { eq } from 'drizzle-orm';
-import { ensureUserExists } from './users.ts';
-import { memoryStore } from './inMemoryStore.ts';
+import { ensureUserExists } from './users';
+import { memoryStore } from './inMemoryStore';
 
 export interface PortfolioSummaryData {
   userId: string;
