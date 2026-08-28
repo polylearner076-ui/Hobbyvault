@@ -8,7 +8,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { generateContentWithFallback } from './geminiService.js';
+import { generateContentWithFallback } from './geminiService.ts';
 
 export interface CachedMarketPrice {
   cacheKey: string;

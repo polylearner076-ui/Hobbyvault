@@ -8,8 +8,8 @@
  */
 
 import { GoogleGenAI, Type } from '@google/genai';
-import { executePricePipeline, CachedMarketPrice } from './dataPipeline.js';
-import { generateContentWithFallback } from './geminiService.js';
+import { executePricePipeline, CachedMarketPrice } from './dataPipeline.ts';
+import { generateContentWithFallback } from './geminiService.ts';
 
 export interface UpstreamSourceGroup {
   id: string;

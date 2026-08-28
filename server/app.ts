@@ -1,15 +1,15 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
-import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, searchOnlineCollectibles, getMemoryCacheStats } from './dataPipeline';
-import { auditSourceGroupsHealth, generateAssetMarketIntelligence, processMetaAgentQuery, UPSTREAM_SOURCE_GROUPS } from './agentSystem';
-import { generateContentWithFallback } from './geminiService';
-import { requireAuth, AuthRequest } from '../src/middleware/auth';
-import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMetrics, registerUser, authenticateUser } from '../src/db/users';
-import { getItemsByUserId, upsertItem, deleteItemById, batchUpsertItems } from '../src/db/items';
-import { getSandboxesByUserId, upsertSandbox, deleteSandboxById } from '../src/db/sandboxes';
-import { getPortfolioSummaryByUserId, upsertPortfolioSummary } from '../src/db/portfolio';
-import { ensureTablesExist } from '../src/db/index';
+import { executePricePipeline, CachedMarketPrice, fetchScryfallData, fetchPokemonLiveIndex, fetchBeybladeMarketData, searchOnlineCollectibles, getMemoryCacheStats } from './dataPipeline.ts';
+import { auditSourceGroupsHealth, generateAssetMarketIntelligence, processMetaAgentQuery, UPSTREAM_SOURCE_GROUPS } from './agentSystem.ts';
+import { generateContentWithFallback } from './geminiService.ts';
+import { requireAuth, AuthRequest } from '../src/middleware/auth.ts';
+import { syncUserToDatabase, getUserByUid, getUserByEmail, updateUserPortfolioMetrics, registerUser, authenticateUser } from '../src/db/users.ts';
+import { getItemsByUserId, upsertItem, deleteItemById, batchUpsertItems } from '../src/db/items.ts';
+import { getSandboxesByUserId, upsertSandbox, deleteSandboxById } from '../src/db/sandboxes.ts';
+import { getPortfolioSummaryByUserId, upsertPortfolioSummary } from '../src/db/portfolio.ts';
+import { ensureTablesExist } from '../src/db/index.ts';
 
 dotenv.config();
 
