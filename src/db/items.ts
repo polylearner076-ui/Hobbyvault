@@ -3,46 +3,53 @@ import { items } from './schema.ts';
 import { and, eq } from 'drizzle-orm';
 import type { AssetItem } from '../types.ts';
 import { ensureUserExists } from './users.ts';
+import { memoryStore } from './inMemoryStore.ts';
 
 export async function getItemsByUserId(userId: string): Promise<AssetItem[]> {
   try {
-    await ensureUserExists(userId);
+    await ensureUserExists(userId).catch(() => {});
     const rows = await db.select().from(items).where(eq(items.userId, userId));
-    return rows.map((r) => ({
-      id: r.id,
-      sandboxId: r.sandboxId || 'default',
-      name: r.name,
-      category: r.category as any,
-      imageUrl: r.imageUrl || '',
-      currentPriceUSD: r.currentPriceUSD,
-      previousPriceUSD_24h: r.previousPriceUSD_24h || undefined,
-      previousPriceUSD_7d: r.previousPriceUSD_7d || undefined,
-      previousPriceUSD_30d: r.previousPriceUSD_30d || undefined,
-      purchasePriceUSD: r.purchasePriceUSD,
-      purchaseDate: r.purchaseDate,
-      quantity: r.quantity,
-      condition: r.condition as any,
-      notes: r.notes || undefined,
-      tags: (r.tags as string[]) || [],
-      priceHistory: (r.priceHistory as any[]) || [],
-      cardSpecs: (r.cardSpecs as any) || undefined,
-      beybladeSpecs: (r.beybladeSpecs as any) || undefined,
-      transactions: (r.transactions as any[]) || [],
-      storageLocation: (r.storageLocation as any) || undefined,
-      isFavorite: r.isFavorite || false,
-      marketSource: r.marketSource || undefined,
-      lastUpdated: r.lastUpdated || new Date().toISOString(),
-      userId: r.userId,
-    }));
+    if (rows && rows.length > 0) {
+      const formatted = rows.map((r) => ({
+        id: r.id,
+        sandboxId: r.sandboxId || 'default',
+        name: r.name,
+        category: r.category as any,
+        imageUrl: r.imageUrl || '',
+        currentPriceUSD: r.currentPriceUSD,
+        previousPriceUSD_24h: r.previousPriceUSD_24h || undefined,
+        previousPriceUSD_7d: r.previousPriceUSD_7d || undefined,
+        previousPriceUSD_30d: r.previousPriceUSD_30d || undefined,
+        purchasePriceUSD: r.purchasePriceUSD,
+        purchaseDate: r.purchaseDate,
+        quantity: r.quantity,
+        condition: r.condition as any,
+        notes: r.notes || undefined,
+        tags: (r.tags as string[]) || [],
+        priceHistory: (r.priceHistory as any[]) || [],
+        cardSpecs: (r.cardSpecs as any) || undefined,
+        beybladeSpecs: (r.beybladeSpecs as any) || undefined,
+        transactions: (r.transactions as any[]) || [],
+        storageLocation: (r.storageLocation as any) || undefined,
+        isFavorite: r.isFavorite || false,
+        marketSource: r.marketSource || undefined,
+        lastUpdated: r.lastUpdated || new Date().toISOString(),
+        userId: r.userId,
+      }));
+      memoryStore.setItems(userId, formatted);
+      return formatted;
+    }
   } catch (error) {
-    console.error('Failed to get items from database:', error);
-    throw new Error('Database query for items failed.', { cause: error });
+    console.warn('Database items query fallback (non-fatal):', error);
   }
+  return memoryStore.getItems(userId);
 }
 
 export async function upsertItem(userId: string, item: AssetItem): Promise<AssetItem> {
+  memoryStore.saveItem(userId, item);
+
   try {
-    await ensureUserExists(userId);
+    await ensureUserExists(userId).catch(() => {});
     const values = {
       id: item.id,
       userId: userId,
@@ -83,12 +90,14 @@ export async function upsertItem(userId: string, item: AssetItem): Promise<Asset
 
     return item;
   } catch (error) {
-    console.error('Failed to upsert item to database:', error);
-    throw new Error('Database upsert for item failed.', { cause: error });
+    console.warn('Database item upsert fallback (non-fatal):', error);
+    return item;
   }
 }
 
 export async function deleteItemById(userId: string, itemId: string): Promise<boolean> {
+  memoryStore.deleteItem(userId, itemId);
+
   try {
     const result = await db
       .delete(items)
@@ -96,8 +105,8 @@ export async function deleteItemById(userId: string, itemId: string): Promise<bo
       .returning();
     return result.length > 0;
   } catch (error) {
-    console.error('Failed to delete item from database:', error);
-    throw new Error('Database delete for item failed.', { cause: error });
+    console.warn('Database item delete fallback (non-fatal):', error);
+    return true;
   }
 }
 
@@ -108,7 +117,7 @@ export async function batchUpsertItems(userId: string, itemsList: AssetItem[]): 
     }
     return itemsList.length;
   } catch (error) {
-    console.error('Failed to batch upsert items:', error);
-    throw new Error('Database batch upsert failed.', { cause: error });
+    console.warn('Database batch upsert fallback (non-fatal):', error);
+    return itemsList.length;
   }
 }

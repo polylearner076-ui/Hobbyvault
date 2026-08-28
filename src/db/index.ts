@@ -10,23 +10,25 @@ declare global {
 
 export const createPool = () => {
   if (!global._postgresPool) {
-    const connectionString = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+    const rawConnectionString = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
 
     let config: PoolConfig;
-    if (connectionString && !connectionString.includes('/app/cloudsql')) {
-      const isSsl = connectionString.includes('supabase') || connectionString.includes('sslmode=require') || process.env.SQL_SSL === 'true';
+    if (rawConnectionString && !rawConnectionString.includes('/app/cloudsql')) {
+      const isSsl = rawConnectionString.includes('supabase') || rawConnectionString.includes('sslmode=require') || process.env.SQL_SSL === 'true';
       config = {
-        connectionString,
+        connectionString: rawConnectionString,
         ssl: isSsl ? { rejectUnauthorized: false } : undefined,
         max: 10,
-        connectionTimeoutMillis: 15000,
+        connectionTimeoutMillis: 5000,
+        idleTimeoutMillis: 10000,
       };
     } else {
-      const host = process.env.SUPABASE_HOST || 'db.fhrebbaflrqydgzvzqbc.supabase.co';
-      const user = process.env.SUPABASE_USER || 'postgres';
+      // Connect via Supabase connection pooler or direct host
+      const host = process.env.SUPABASE_HOST || 'aws-0-ap-southeast-1.pooler.supabase.com';
+      const user = process.env.SUPABASE_USER || 'postgres.fhrebbaflrqydgzvzqbc';
       const password = process.env.SUPABASE_PASSWORD || 'HobbyWault!';
       const database = process.env.SUPABASE_DB_NAME || 'postgres';
-      const port = 5432;
+      const port = Number(process.env.SUPABASE_PORT) || 6543;
 
       config = {
         host,
@@ -36,18 +38,19 @@ export const createPool = () => {
         database,
         ssl: { rejectUnauthorized: false },
         max: 10,
-        connectionTimeoutMillis: 15000,
+        connectionTimeoutMillis: 5000,
+        idleTimeoutMillis: 10000,
       };
     }
 
     global._postgresPool = new Pool(config);
 
     global._postgresPool.on('connect', (client) => {
-      client.query('SET search_path TO public;');
+      client.query('SET search_path TO public;').catch(() => {});
     });
 
     global._postgresPool.on('error', (err) => {
-      console.error('Unexpected error on idle SQL pool client:', err);
+      console.warn('SQL pool connection warning:', err?.message || err);
     });
   }
   return global._postgresPool;

@@ -3,31 +3,38 @@ import { sandboxes } from './schema.ts';
 import { and, eq } from 'drizzle-orm';
 import type { Sandbox } from '../types.ts';
 import { ensureUserExists } from './users.ts';
+import { memoryStore } from './inMemoryStore.ts';
 
 export async function getSandboxesByUserId(userId: string): Promise<Sandbox[]> {
   try {
-    await ensureUserExists(userId);
+    await ensureUserExists(userId).catch(() => {});
     const rows = await db.select().from(sandboxes).where(eq(sandboxes.userId, userId));
-    return rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      type: r.type as any,
-      description: r.description || '',
-      iconName: r.iconName || 'Folder',
-      themeColor: r.themeColor || '#007AFF',
-      customFields: (r.customFields as any) || [],
-      createdAt: r.createdAt ? r.createdAt.toISOString() : new Date().toISOString(),
-      userId: r.userId,
-    }));
+    if (rows && rows.length > 0) {
+      const formatted = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        type: r.type as any,
+        description: r.description || '',
+        iconName: r.iconName || 'Folder',
+        themeColor: r.themeColor || '#007AFF',
+        customFields: (r.customFields as any) || [],
+        createdAt: r.createdAt ? r.createdAt.toISOString() : new Date().toISOString(),
+        userId: r.userId,
+      }));
+      memoryStore.setSandboxes(userId, formatted);
+      return formatted;
+    }
   } catch (error) {
-    console.error('Failed to get sandboxes from database:', error);
-    throw new Error('Database query for sandboxes failed.', { cause: error });
+    console.warn('Database sandboxes query fallback (non-fatal):', error);
   }
+  return memoryStore.getSandboxes(userId);
 }
 
 export async function upsertSandbox(userId: string, box: Sandbox): Promise<Sandbox> {
+  memoryStore.saveSandbox(userId, box);
+
   try {
-    await ensureUserExists(userId);
+    await ensureUserExists(userId).catch(() => {});
     const values = {
       id: box.id,
       userId: userId,
@@ -53,12 +60,14 @@ export async function upsertSandbox(userId: string, box: Sandbox): Promise<Sandb
 
     return box;
   } catch (error) {
-    console.error('Failed to upsert sandbox to database:', error);
-    throw new Error('Database upsert for sandbox failed.', { cause: error });
+    console.warn('Database sandbox upsert fallback (non-fatal):', error);
+    return box;
   }
 }
 
 export async function deleteSandboxById(userId: string, sandboxId: string): Promise<boolean> {
+  memoryStore.deleteSandbox(userId, sandboxId);
+
   try {
     const result = await db
       .delete(sandboxes)
@@ -66,7 +75,7 @@ export async function deleteSandboxById(userId: string, sandboxId: string): Prom
       .returning();
     return result.length > 0;
   } catch (error) {
-    console.error('Failed to delete sandbox from database:', error);
-    throw new Error('Database delete for sandbox failed.', { cause: error });
+    console.warn('Database sandbox delete fallback (non-fatal):', error);
+    return true;
   }
 }

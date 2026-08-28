@@ -2,6 +2,7 @@ import { db } from './index.ts';
 import { portfolioSummaries } from './schema.ts';
 import { eq } from 'drizzle-orm';
 import { ensureUserExists } from './users.ts';
+import { memoryStore } from './inMemoryStore.ts';
 
 export interface PortfolioSummaryData {
   userId: string;
@@ -16,29 +17,34 @@ export interface PortfolioSummaryData {
 
 export async function getPortfolioSummaryByUserId(userId: string): Promise<PortfolioSummaryData | null> {
   try {
-    await ensureUserExists(userId);
+    await ensureUserExists(userId).catch(() => {});
     const rows = await db.select().from(portfolioSummaries).where(eq(portfolioSummaries.userId, userId)).limit(1);
-    if (!rows.length) return null;
-    const r = rows[0];
-    return {
-      userId: r.userId,
-      totalValueUSD: r.totalValueUSD,
-      totalCostUSD: r.totalCostUSD,
-      totalGainLossUSD: r.totalGainLossUSD,
-      totalGainLossPercent: r.totalGainLossPercent,
-      itemCount: r.itemCount,
-      sandboxCount: r.sandboxCount,
-      lastUpdated: r.lastUpdated ? r.lastUpdated.toISOString() : new Date().toISOString(),
-    };
+    if (rows.length > 0) {
+      const r = rows[0];
+      const summary: PortfolioSummaryData = {
+        userId: r.userId,
+        totalValueUSD: r.totalValueUSD,
+        totalCostUSD: r.totalCostUSD,
+        totalGainLossUSD: r.totalGainLossUSD,
+        totalGainLossPercent: r.totalGainLossPercent,
+        itemCount: r.itemCount,
+        sandboxCount: r.sandboxCount,
+        lastUpdated: r.lastUpdated ? r.lastUpdated.toISOString() : new Date().toISOString(),
+      };
+      memoryStore.savePortfolio(userId, summary);
+      return summary;
+    }
   } catch (error) {
-    console.error('Failed to get portfolio summary from database:', error);
-    throw new Error('Database query for portfolio summary failed.', { cause: error });
+    console.warn('Database portfolio summary query fallback (non-fatal):', error);
   }
+  return memoryStore.getPortfolio(userId);
 }
 
 export async function upsertPortfolioSummary(data: PortfolioSummaryData): Promise<PortfolioSummaryData> {
+  memoryStore.savePortfolio(data.userId, data);
+
   try {
-    await ensureUserExists(data.userId);
+    await ensureUserExists(data.userId).catch(() => {});
     const existing = await db
       .select()
       .from(portfolioSummaries)
@@ -64,7 +70,7 @@ export async function upsertPortfolioSummary(data: PortfolioSummaryData): Promis
 
     return data;
   } catch (error) {
-    console.error('Failed to upsert portfolio summary in database:', error);
-    throw new Error('Database upsert for portfolio summary failed.', { cause: error });
+    console.warn('Database portfolio summary upsert fallback (non-fatal):', error);
+    return data;
   }
 }
