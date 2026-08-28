@@ -17,6 +17,17 @@ dotenv.config();
 export const app = express();
 const PORT = 3000;
 
+// Permissive CORS middleware for both local and serverless deployments
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 // Lazy initialize Gemini client if key is available
@@ -48,8 +59,11 @@ function getAI(): GoogleGenAI | null {
   return aiClient;
 }
 
+// Create dedicated API router that will be mounted at both /api and / to handle Vercel rewrites seamlessly
+const router = express.Router();
+
 // Health check and environment diagnostics
-app.get('/api/health', (req, res) => {
+router.get('/health', (req, res) => {
   const aiDetected = Boolean(
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_API_KEY ||
@@ -70,7 +84,7 @@ app.get('/api/health', (req, res) => {
 // ==========================================
 
 // Register Account
-app.post('/api/auth/register', async (req, res) => {
+router.post('/auth/register', async (req, res) => {
   try {
     const { email, password, displayName } = req.body;
     if (!email || !password) {
@@ -85,7 +99,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Login Account
-app.post('/api/auth/login', async (req, res) => {
+router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email) {
@@ -95,11 +109,9 @@ app.post('/api/auth/login', async (req, res) => {
     return res.json({ success: true, user });
   } catch (error: any) {
     console.warn('Login non-fatal notice:', error?.message || error);
-    // If password mismatch, return 401 with clear message
     if (error?.message?.includes('password') || error?.message?.includes('Password')) {
       return res.status(401).json({ success: false, error: error.message });
     }
-    // Otherwise fallback gracefully
     const cleanEmail = (req.body?.email || '').trim().toLowerCase();
     const fallbackUser = {
       uid: `user_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -117,7 +129,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // Get Current User Info
-app.get('/api/auth/me', async (req, res) => {
+router.get('/auth/me', async (req, res) => {
   try {
     const uid = (req.query.uid as string) || (req.headers['x-user-id'] as string);
     const email = req.query.email as string;
@@ -137,8 +149,8 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
-// Logout (Stateless client acknowledgement)
-app.post('/api/auth/logout', (req, res) => {
+// Logout
+router.post('/auth/logout', (req, res) => {
   res.json({ success: true, message: 'Logged out successfully' });
 });
 
@@ -147,7 +159,7 @@ app.post('/api/auth/logout', (req, res) => {
 // ==========================================
 
 // User Sync & Authentication Record
-app.post('/api/users/sync', async (req, res) => {
+router.post('/users/sync', async (req, res) => {
   try {
     const { uid, email, displayName, photoURL, providerId, primaryProvider, linkedProviders, totalPortfolioValueUSD, totalPortfolioCostUSD, totalPortfolioGainLossUSD, totalItems } = req.body;
     if (!uid || !email) {
@@ -176,7 +188,7 @@ app.post('/api/users/sync', async (req, res) => {
 });
 
 // Get Current User Profile
-app.get('/api/users/profile', async (req, res) => {
+router.get('/users/profile', async (req, res) => {
   try {
     const uid = (req.query.uid as string) || (req.headers['x-user-id'] as string);
     if (!uid) return res.status(400).json({ error: 'User UID is required' });
@@ -190,7 +202,7 @@ app.get('/api/users/profile', async (req, res) => {
 });
 
 // Lookup User by Email
-app.get('/api/users/by-email', async (req, res) => {
+router.get('/users/by-email', async (req, res) => {
   try {
     const email = (req.query.email as string)?.trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'Email query parameter is required' });
@@ -204,7 +216,7 @@ app.get('/api/users/by-email', async (req, res) => {
 });
 
 // Get User's Portfolio Items
-app.get('/api/items', async (req, res) => {
+router.get('/items', async (req, res) => {
   try {
     const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
     if (!userId) {
@@ -220,7 +232,7 @@ app.get('/api/items', async (req, res) => {
 });
 
 // Upsert Single Portfolio Item
-app.post('/api/items', async (req, res) => {
+router.post('/items', async (req, res) => {
   try {
     const { userId, item } = req.body;
     const targetUserId = userId || req.headers['x-user-id'];
@@ -237,7 +249,7 @@ app.post('/api/items', async (req, res) => {
 });
 
 // Batch Save/Sync Items
-app.post('/api/items/batch', async (req, res) => {
+router.post('/items/batch', async (req, res) => {
   try {
     const { userId, items: itemsList } = req.body;
     const targetUserId = userId || req.headers['x-user-id'];
@@ -254,7 +266,7 @@ app.post('/api/items/batch', async (req, res) => {
 });
 
 // Delete Portfolio Item
-app.delete('/api/items/:id', async (req, res) => {
+router.delete('/items/:id', async (req, res) => {
   try {
     const itemId = req.params.id;
     const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
@@ -271,7 +283,7 @@ app.delete('/api/items/:id', async (req, res) => {
 });
 
 // Get User's Sandboxes / Custom Vaults
-app.get('/api/sandboxes', async (req, res) => {
+router.get('/sandboxes', async (req, res) => {
   try {
     const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
     if (!userId) {
@@ -287,7 +299,7 @@ app.get('/api/sandboxes', async (req, res) => {
 });
 
 // Upsert Sandbox
-app.post('/api/sandboxes', async (req, res) => {
+router.post('/sandboxes', async (req, res) => {
   try {
     const { userId, sandbox } = req.body;
     const targetUserId = userId || req.headers['x-user-id'];
@@ -304,7 +316,7 @@ app.post('/api/sandboxes', async (req, res) => {
 });
 
 // Delete Sandbox
-app.delete('/api/sandboxes/:id', async (req, res) => {
+router.delete('/sandboxes/:id', async (req, res) => {
   try {
     const sandboxId = req.params.id;
     const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
@@ -321,7 +333,7 @@ app.delete('/api/sandboxes/:id', async (req, res) => {
 });
 
 // Get Portfolio Summary
-app.get('/api/portfolio/summary', async (req, res) => {
+router.get('/portfolio/summary', async (req, res) => {
   try {
     const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string);
     if (!userId) {
@@ -337,7 +349,7 @@ app.get('/api/portfolio/summary', async (req, res) => {
 });
 
 // Upsert Portfolio Summary
-app.post('/api/portfolio/summary', async (req, res) => {
+router.post('/portfolio/summary', async (req, res) => {
   try {
     const { userId, totalValueUSD, totalCostUSD, totalGainLossUSD, totalGainLossPercent, itemCount, sandboxCount } = req.body;
     const targetUserId = userId || req.headers['x-user-id'];
@@ -355,7 +367,6 @@ app.post('/api/portfolio/summary', async (req, res) => {
       sandboxCount: Number(sandboxCount) || 0,
     });
 
-    // Also update user profile rollup
     await updateUserPortfolioMetrics(targetUserId, {
       totalPortfolioValueUSD: Number(totalValueUSD) || 0,
       totalPortfolioCostUSD: Number(totalCostUSD) || 0,
@@ -370,10 +381,10 @@ app.post('/api/portfolio/summary', async (req, res) => {
   }
 });
 
-// API: Lookup live market price using External TCG/Market API Data Pipeline + Multi-Tier Cache (L1 Memory + Supabase)
-app.post('/api/pricing/lookup', async (req, res) => {
+// API: Lookup live market price using External TCG/Market API Data Pipeline
+router.post('/pricing/lookup', async (req, res) => {
   try {
-    const { name, category = 'pokemon', forceRefresh = false, condition, setOrGen } = req.body;
+    const { name, category = 'pokemon', forceRefresh = false } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Item name is required' });
     }
@@ -402,8 +413,8 @@ app.post('/api/pricing/lookup', async (req, res) => {
   }
 });
 
-// API: Batch price synchronization via Data Pipeline (Real-Time Live Market Feeds)
-app.post('/api/pricing/sync-batch', async (req, res) => {
+// API: Batch price synchronization via Data Pipeline
+router.post('/pricing/sync-batch', async (req, res) => {
   try {
     const { items, forceRefresh = false } = req.body;
     if (!Array.isArray(items)) {
@@ -423,7 +434,6 @@ app.post('/api/pricing/sync-batch', async (req, res) => {
             lastUpdated: new Date().toISOString(),
           };
         } catch (e) {
-          // Fallback variance if external network fails
           const deltaPercent = (Math.random() * 2 - 0.9) / 100;
           const newPrice = Number(Math.max(1, (item.currentPriceUSD || 50) * (1 + deltaPercent)).toFixed(2));
           return {
@@ -450,7 +460,7 @@ app.post('/api/pricing/sync-batch', async (req, res) => {
 });
 
 // API: Data Pipeline Diagnostics & Cached Entries
-app.get('/api/pipeline/stats', async (req, res) => {
+router.get('/pipeline/stats', async (req, res) => {
   try {
     const memStats = getMemoryCacheStats();
     res.json({
@@ -468,7 +478,7 @@ app.get('/api/pipeline/stats', async (req, res) => {
 });
 
 // API: Run Pipeline Diagnostics & Cache Status
-app.get('/api/pipeline/test-apis', async (req, res) => {
+router.get('/pipeline/test-apis', async (req, res) => {
   try {
     const stats = getMemoryCacheStats();
     res.json({
@@ -485,7 +495,7 @@ app.get('/api/pipeline/test-apis', async (req, res) => {
 });
 
 // API: Run Asset Audit Check
-app.get('/api/pipeline/audit-assets', async (req, res) => {
+router.get('/pipeline/audit-assets', async (req, res) => {
   try {
     res.json({
       success: true,
@@ -501,7 +511,7 @@ app.get('/api/pipeline/audit-assets', async (req, res) => {
 });
 
 // API: Live Search and Test any custom query against external APIs
-app.post('/api/pipeline/live-query', async (req, res) => {
+router.post('/pipeline/live-query', async (req, res) => {
   try {
     const { query, category = 'mtg' } = req.body;
     if (!query) return res.status(400).json({ error: 'Query string required' });
@@ -529,7 +539,7 @@ app.post('/api/pipeline/live-query', async (req, res) => {
 });
 
 // API: Debounced Online Collectibles Search & Dropdown Suggestions
-app.post('/api/search/suggestions', async (req, res) => {
+router.post('/search/suggestions', async (req, res) => {
   try {
     const { query, category } = req.body;
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
@@ -549,8 +559,8 @@ app.post('/api/search/suggestions', async (req, res) => {
   }
 });
 
-// API: Upstream Source Groups & Freshness Monitor (Inspired by WorldMonitor multi-source telemetry)
-app.get('/api/agent/source-health', async (req, res) => {
+// API: Upstream Source Groups & Freshness Monitor
+router.get('/agent/source-health', async (req, res) => {
   try {
     const report = await auditSourceGroupsHealth();
     res.json({ success: true, ...report });
@@ -559,8 +569,8 @@ app.get('/api/agent/source-health', async (req, res) => {
   }
 });
 
-// API: Collectible Market Intelligence Agent (Gemini 3.7 Flash Autonomous Appraisal & Comps Verification)
-app.post('/api/agent/intel', async (req, res) => {
+// API: Collectible Market Intelligence Agent
+router.post('/agent/intel', async (req, res) => {
   try {
     const { asset } = req.body;
     if (!asset || !asset.name) {
@@ -576,7 +586,7 @@ app.post('/api/agent/intel', async (req, res) => {
 });
 
 // API: Agent Natural Language Query & Source Auto-Routing Engine
-app.post('/api/agent/query-resolution', async (req, res) => {
+router.post('/agent/query-resolution', async (req, res) => {
   try {
     const { query } = req.body;
     if (!query) return res.status(400).json({ error: 'Query string required' });
@@ -616,9 +626,8 @@ app.post('/api/agent/query-resolution', async (req, res) => {
   }
 });
 
-// API: Omni-Vault & Physical Storage Meta-Agent Query Engine (Powered by Gemini 3.7 Flash)
-// Filters across categories, computes aggregated valuations, and cross-references physical storage locations
-app.post('/api/agent/meta-query', async (req, res) => {
+// API: Omni-Vault & Physical Storage Meta-Agent Query Engine
+router.post('/agent/meta-query', async (req, res) => {
   try {
     const { prompt, vaultItems = [], storageUnits = [], currency = 'USD', model } = req.body;
     if (!prompt || typeof prompt !== 'string') {
@@ -648,7 +657,7 @@ app.post('/api/agent/meta-query', async (req, res) => {
 });
 
 // Alias for meta-query
-app.post('/api/agent/query', async (req, res) => {
+router.post('/agent/query', async (req, res) => {
   try {
     const { prompt, vaultItems = [], storageUnits = [], currency = 'USD', model } = req.body;
     if (!prompt || typeof prompt !== 'string') {
@@ -854,7 +863,7 @@ function generateFallbackScanResult(textQuery?: string, categoryHint?: string) {
 }
 
 // API: AI Scanner for card or beyblade photo / text
-app.post('/api/ai/scan-identify', async (req, res) => {
+router.post('/ai/scan-identify', async (req, res) => {
   try {
     const { imageBase64, mimeType = 'image/jpeg', textQuery, categoryHint } = req.body;
     const ai = getAI();
@@ -928,7 +937,7 @@ Return pure JSON:
 });
 
 // API: AI Market Insights & Portfolio Analysis
-app.post('/api/ai/market-insights', async (req, res) => {
+router.post('/ai/market-insights', async (req, res) => {
   try {
     const { items = [], sandboxes = [] } = req.body;
     const ai = getAI();
@@ -979,10 +988,15 @@ Provide professional market valuation insight in JSON:
   }
 });
 
+// Mount the router at both /api and / to seamlessly handle Vercel rewrites and standard Express
+app.use('/api', router);
+app.use('/', router);
+
 // Start Express server and mount Vite
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
+    const vitePkg = 'vite';
+    const { createServer: createViteServer } = await import(vitePkg);
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
